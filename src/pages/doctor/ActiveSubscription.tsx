@@ -1,64 +1,129 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
 import { 
   CreditCard, 
   Zap, 
-  Clock, 
   CheckCircle2, 
-  AlertTriangle,
-  ChevronDown,
+  AlertTriangle, 
+  Loader2, 
+  ChevronDown, 
+  ChevronUp,
   Menu,
   X,
   Search,
   Bell,
   User,
-  ChevronLeft,
-  ChevronRight,Settings ,LogOut ,ChevronUp 
+  LayoutDashboard,
+  LogOut,
+  Settings,
+  ChevronRight 
 } from 'lucide-react';
-import { Stethoscope } from 'lucide-react';
-import { LayoutDashboard } from 'lucide-react';
 
 const ActiveSubscription = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [subscription, setSubscription] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock subscription data
-  const subscriptionData = {
-    plan: "Professional Plus",
-    status: "active",
-    renewalDate: "2025-12-01",
-    features: [
-      "Unlimited patient records",
-      "Priority support",
-      "Advanced analytics",
-      "Custom branding"
-    ],
-    billingHistory: [
-      { id: 1, plan: "Professional Plus", date: "Nov 1, 2025", amount: "$99.00" },
-      { id: 2, plan: "Professional Plus", date: "Oct 1, 2025", amount: "$99.00" },
-      { id: 3, plan: "Basic", date: "Sep 1, 2025", amount: "$49.00" }
-    ]
+  // Fetch active subscription data on component mount
+  useEffect(() => {
+    const fetchActiveSubscription = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // API call to fetch the current subscription
+        const response = await axios.get('/api/subscriptions/current');
+        setSubscription(response.data);  // Set the fetched subscription data
+      } catch (err) {
+        console.error('Failed to fetch active subscription:', err);
+        setError('Failed to load subscription data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchActiveSubscription();
+  }, []);
+
+  const handleCancelSubscription = async () => {
+    if (!window.confirm('Are you sure you want to cancel your subscription?')) return;
+    
+    try {
+      setLoading(true);
+      const response = await axios.put('/api/subscriptions/cancel');
+      setSubscription(null);  // Remove subscription data after successful cancellation
+      toast.success(response.data.message);  // Show success message
+    } catch (err) {
+      console.error('Failed to cancel subscription:', err);
+      toast.error('Failed to cancel subscription');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
+        <span className="ml-2">Loading subscription...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-lg border border-red-200 p-4">
+        <div className="flex items-center text-red-500">
+          <AlertTriangle className="h-5 w-5 mr-2" />
+          <span>{error}</span>
+        </div>
+        <button 
+          onClick={() => window.location.reload()}
+          className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  if (!subscription) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+        <CreditCard className="mx-auto h-12 w-12 text-gray-400" />
+        <h3 className="mt-2 text-lg font-medium text-gray-900">No active subscription</h3>
+        <p className="mt-1 text-gray-500">You don't have an active subscription plan.</p>
+        <button
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          onClick={() => window.location.href = '/subscriptions'}
+        >
+          View Subscription Plans
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Mobile Sidebar Overlay */}
       {mobileSidebarOpen && (
         <div 
-          className="fixed inset-0  bg-opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 bg-opacity-50 z-40 lg:hidden"
           onClick={() => setMobileSidebarOpen(false)}
         ></div>
       )}
 
       {/* Sidebar */}
       <aside 
-        className={`fixed lg:static z-50 w-64 bg-gray-900 text-white border-r border-gray-800 h-screen transition-all duration-300 ease-in-out transform ${
-          mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        }`}
+        className={`fixed lg:static z-50 w-64 bg-gray-900 text-white border-r border-gray-800 h-screen transition-all duration-300 ease-in-out transform ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
         <div className="p-4 border-b border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center">
-              <Stethoscope className="h-5 w-5" />
+              <LayoutDashboard className="h-5 w-5" />
             </div>
             <div>
               <h1 className="text-lg font-bold">Doctor Portal</h1>
@@ -175,9 +240,9 @@ const ActiveSubscription = () => {
                     <CreditCard className="h-6 w-6 text-blue-600" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-semibold">{subscriptionData.plan}</h2>
+                    <h2 className="text-xl font-semibold">{subscription?.plan?.name || 'Unknown Plan'}</h2>
                     <div className="flex items-center gap-2 mt-1">
-                      {subscriptionData.status === 'active' ? (
+                      {subscription?.status === 'active' ? (
                         <>
                           <CheckCircle2 className="h-4 w-4 text-green-500" />
                           <span className="text-green-600 text-sm">Active subscription</span>
@@ -189,62 +254,52 @@ const ActiveSubscription = () => {
                         </>
                       )}
                     </div>
+                    <p className="text-sm text-gray-500 mt-2">
+                      {subscription?.plan?.description || 'No description available'}
+                    </p>
                   </div>
                 </div>
                 
                 <div className="flex flex-col sm:flex-row items-center gap-3">
                   <div className="text-right">
                     <p className="text-sm text-gray-500">Renewal date</p>
-                    <p className="font-medium">{subscriptionData.renewalDate}</p>
+                    <p className="font-medium">
+                      {subscription?.endDate ? new Date(subscription.endDate).toLocaleDateString() : 'Not available'}
+                    </p>
                   </div>
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 whitespace-nowrap">
+                  <button
+                    onClick={() => window.location.href = '/subscriptions'}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 whitespace-nowrap"
+                  >
                     <Zap className="h-4 w-4" />
                     <span>Upgrade Plan</span>
+                  </button>
+                  <button
+                    onClick={handleCancelSubscription}
+                    className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <Loader2 className="animate-spin h-4 w-4" />
+                    ) : (
+                      'Cancel Subscription'
+                    )}
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Plan Features and Billing History */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              {/* Plan Features */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-medium mb-4">Plan Features</h3>
-                <ul className="space-y-3">
-                  {subscriptionData.features.map((feature, index) => (
-                    <li key={index} className="flex items-start gap-3">
-                      <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Billing History */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium">Billing History</h3>
-                  <button className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
-                    View all <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  {subscriptionData.billingHistory.slice(0, 2).map((bill) => (
-                    <div key={bill.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 rounded-md">
-                          <CreditCard className="h-4 w-4 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{bill.plan}</p>
-                          <p className="text-sm text-gray-500">{bill.date}</p>
-                        </div>
-                      </div>
-                      <p className="font-medium">{bill.amount}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {/* Plan Features */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-medium mb-4">Plan Features</h3>
+              <ul className="space-y-3">
+                {subscription?.plan?.features?.map((feature, index) => (
+                  <li key={index} className="flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
 
             {/* Usage Statistics */}
@@ -283,45 +338,6 @@ const ActiveSubscription = () => {
                     <div className="bg-blue-600 h-2 rounded-full" style={{width: '35%'}}></div>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Subscription Plans */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-medium mb-6">Available Plans</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {[
-                  {name: "Basic", price: "$49/mo", features: ["100 patient records", "Email support", "Basic analytics"]},
-                  {name: "Professional", price: "$99/mo", current: true, features: ["Unlimited records", "Priority support", "Advanced analytics"]},
-                  {name: "Enterprise", price: "$199/mo", features: ["Unlimited records", "24/7 support", "Custom branding", "API access"]}
-                ].map((plan, index) => (
-                  <div 
-                    key={index} 
-                    className={`border rounded-lg p-6 ${plan.current ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}
-                  >
-                    <div className="flex justify-between items-start mb-4">
-                      <h4 className="font-bold text-lg">{plan.name}</h4>
-                      <span className="font-medium">{plan.price}</span>
-                    </div>
-                    <ul className="space-y-2 mb-6">
-                      {plan.features.map((feature, i) => (
-                        <li key={i} className="flex items-start gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                          <span className="text-sm">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <button 
-                      className={`w-full py-2 rounded-md font-medium ${
-                        plan.current 
-                          ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                          : 'border border-blue-600 text-blue-600 hover:bg-blue-50'
-                      }`}
-                    >
-                      {plan.current ? 'Current Plan' : 'Upgrade'}
-                    </button>
-                  </div>
-                ))}
               </div>
             </div>
           </div>

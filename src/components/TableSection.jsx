@@ -77,7 +77,9 @@ const TableSection = ({
       {/* Table Controls */}
       <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         {/* Left Controls */}
-        <div className="flex items-center gap-3">
+       
+       
+        {/* <div className="flex items-center gap-3">
           <div className="relative">
             <select 
               value={filterValue}
@@ -108,10 +110,10 @@ const TableSection = ({
           >
             <RefreshCw className="h-4 w-4" />
           </button>
-        </div>
+        </div> */}
 
         {/* Right Controls */}
-        <div className="flex items-center gap-3">
+        {/* <div className="flex items-center gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
@@ -137,7 +139,7 @@ const TableSection = ({
             <Plus className="h-4 w-4" />
             <span>Add New</span>
           </button>
-        </div>
+        </div> */}
       </div>
 
       {/* Table Content */}

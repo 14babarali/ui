@@ -86,7 +86,7 @@ const Patients = () => {
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="max-w-7xl mx-auto">
             {/* Action Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            {/* <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
               <div className="flex items-center gap-3">
                 <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm">
                   <UserPlus className="h-4 w-4" />
@@ -111,7 +111,7 @@ const Patients = () => {
                   <option>100</option>
                 </select>
               </div>
-            </div>
+            </div> */}
 
             {/* Patients Table */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

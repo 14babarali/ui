@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   User,
   MapPin,
@@ -12,91 +12,248 @@ import {
   Eye,
   Edit,
   Check,
-  ChevronDown
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import axios from 'axios';
+import { toast } from 'react-toastify';
 
-// Define validation schema
+// Define validation schema for doctor profile
 const doctorProfileSchema = z.object({
   firstName: z.string()
-    .min(2, "First name must be at least 2 characters")
-    .max(50, "First name must be less than 50 characters"),
+    .min(2, 'First name must be at least 2 characters')
+    .max(50, 'First name must be less than 50 characters'),
   lastName: z.string()
-    .min(2, "Last name must be at least 2 characters")
-    .max(50, "Last name must be less than 50 characters"),
+    .min(2, 'Last name must be at least 2 characters')
+    .max(50, 'Last name must be less than 50 characters'),
   location: z.string()
-    .min(2, "Location must be at least 2 characters"),
+    .min(2, 'Location must be at least 2 characters'),
   idNumber: z.string()
-    .min(5, "ID number must be at least 5 characters")
-    .regex(/^[0-9-]+$/, "ID number can only contain numbers and hyphens"),
+    .min(5, 'ID number must be at least 5 characters')
+    .regex(/^[0-9-]+$/, 'ID number can only contain numbers and hyphens'),
   certificationId: z.string()
-    .min(5, "Certification ID must be at least 5 characters"),
+    .min(5, 'Certification ID must be at least 5 characters'),
   education: z.string()
-    .min(2, "Education must be at least 2 characters"),
+    .min(2, 'Education must be at least 2 characters'),
   hospital: z.string()
-    .min(2, "Hospital name must be at least 2 characters"),
+    .min(2, 'Hospital name must be at least 2 characters'),
   phone: z.string()
-    .min(10, "Phone number must be at least 10 characters")
-    .regex(/^\+?[0-9\s-]+$/, "Invalid phone number format"),
+    .min(10, 'Phone number must be at least 10 characters')
+    .regex(/^\+?[0-9\s-]+$/, 'Invalid phone number format'),
   licenseNumber: z.string()
-    .min(5, "License number must be at least 5 characters"),
+    .min(5, 'License number must be at least 5 characters'),
   qualifications: z.string()
-    .min(2, "Qualifications must be at least 2 characters"),
-  prescriptionTemplate: z.string()
+    .min(2, 'Qualifications must be at least 2 characters'),
+  prescriptionTemplate: z.string().optional(), // Make optional to avoid validation errors
+});
+
+// Define validation schema for prescription templates
+const templateSchema = z.object({
+  name: z.string().min(2, 'Template name must be at least 2 characters'),
+  content: z.string().min(1, 'Template content is required'),
 });
 
 const SettingsForm = () => {
-  const [selectedPrescription, setSelectedPrescription] = useState('Prescription 1');
   const [showPopup, setShowPopup] = useState(false);
-  const [activeTab, setActiveTab] = useState('view');
+  const [activeTab, setActiveTab] = useState('edit'); // Default to edit for new templates
   const [isSaving, setIsSaving] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [profileData, setProfileData] = useState(null);
+  const [error, setError] = useState(null);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
 
+  // Main profile form
   const { 
     register, 
     handleSubmit, 
     formState: { errors },
-    setValue
+    setValue,
+    reset,
   } = useForm({
     resolver: zodResolver(doctorProfileSchema),
-    defaultValues: {
-      firstName: 'First name',
-      lastName: 'Last name',
-      location: 'Input field',
-      idNumber: '711305-500304-1',
-      certificationId: 'Board certification',
-      education: 'Edu',
-      hospital: 'Hospital field',
-      phone: 'pak +92 300-0000',
-      licenseNumber: 'Med license no',
-      qualifications: 'qualifications',
-      prescriptionTemplate: 'Prescription 1'
-    }
   });
 
-  const onSubmit = (data) => {
-    setIsSaving(true);
-    // Simulate API call
-    setTimeout(() => {
+  // Template form
+  const { 
+    register: registerTemplate, 
+    handleSubmit: handleTemplateSubmit, 
+    formState: { errors: templateErrors },
+    reset: resetTemplate,
+  } = useForm({
+    resolver: zodResolver(templateSchema),
+  });
+
+  // Fetch doctor profile and templates
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Fetch profile and templates concurrently
+        const [profileResponse, templatesResponse] = await Promise.all([
+          axios.get('/api/doctor/profile', {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+          }),
+          axios.get('/api/doctor/templates', {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+          }),
+        ]);
+
+        setProfileData(profileResponse.data);
+        const fetchedTemplates = Array.isArray(templatesResponse.data) ? templatesResponse.data : [];
+        setTemplates(fetchedTemplates);
+
+        // Set default template
+        const defaultTemplate = fetchedTemplates.find((t) => t.isDefault)?._id || fetchedTemplates[0]?._id || '';
+        reset({
+          ...profileResponse.data,
+          prescriptionTemplate: defaultTemplate,
+        });
+        setValue('prescriptionTemplate', defaultTemplate);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        const errorMessage = error.response?.data?.message || 'Failed to load profile data';
+        setError(errorMessage);
+        toast.error(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [reset, setValue]);
+
+  const onSubmit = async (data) => {
+    try {
+      setIsSaving(true);
+      const { prescriptionTemplate, ...profileData } = data;
+
+      const response = await axios.put('/api/doctor/profile', profileData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+
+      toast.success('Profile updated successfully!');
+      setProfileData(response.data);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to update profile';
+      toast.error(errorMessage);
+    } finally {
       setIsSaving(false);
-      alert('Settings saved successfully!');
-      console.log(data);
-    }, 1500);
+    }
   };
 
   const handlePrescriptionTemplateClick = () => {
     setShowPopup(true);
+    setSelectedTemplate(null);
+    setActiveTab('edit');
+    resetTemplate(); // Reset template form
   };
 
   const closePopup = () => {
     setShowPopup(false);
+    setSelectedTemplate(null);
+    resetTemplate();
   };
 
-  const handlePrescriptionChange = (prescription) => {
-    setSelectedPrescription(prescription);
-    setValue('prescriptionTemplate', prescription);
+  const handleEditTemplate = (template) => {
+    setSelectedTemplate(template);
+    setActiveTab('edit');
+    setShowPopup(true);
+    resetTemplate({ name: template.name, content: template.content });
   };
+
+  // Template management functions
+  const createTemplate = async (templateData) => {
+    try {
+      const response = await axios.post('/api/doctor/templates', templateData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+
+      setTemplates([...templates, response.data]);
+      toast.success('Template created successfully!');
+      closePopup();
+    } catch (error) {
+      console.error('Error creating template:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to create template';
+      toast.error(errorMessage);
+    }
+  };
+
+  const updateTemplate = async (id, templateData) => {
+    try {
+      const response = await axios.put(`/api/doctor/templates/${id}`, templateData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+
+      setTemplates(templates.map((t) => (t._id === id ? response.data : t)));
+      toast.success('Template updated successfully!');
+      closePopup();
+    } catch (error) {
+      console.error('Error updating template:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to update template';
+      toast.error(errorMessage);
+    }
+  };
+
+  const deleteTemplate = async (id) => {
+    try {
+      await axios.delete(`/api/doctor/templates/${id}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+
+      setTemplates(templates.filter((t) => t._id !== id));
+      toast.success('Template deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to delete template';
+      toast.error(errorMessage);
+    }
+  };
+
+  const setDefaultTemplate = async (id) => {
+    try {
+      await axios.put(`/api/doctor/templates/${id}/set-default`, {}, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+
+      setTemplates(templates.map((t) => ({ ...t, isDefault: t._id === id })));
+      setValue('prescriptionTemplate', id);
+      toast.success('Default template set successfully!');
+    } catch (error) {
+      console.error('Error setting default template:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to set default template';
+      toast.error(errorMessage);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="text-red-500 flex items-center gap-2">
+          <X className="h-5 w-5" />
+          <span>{error}</span>
+        </div>
+        <button 
+          onClick={() => window.location.reload()}
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -120,7 +277,7 @@ const SettingsForm = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">First name</label>
               <div className="relative">
                 <input
-                  {...register("firstName")}
+                  {...register('firstName')}
                   className={`w-full pl-10 pr-4 py-2 border ${errors.firstName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:ring-blue-500 focus:border-blue-500`}
                 />
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -131,7 +288,7 @@ const SettingsForm = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Last name</label>
               <input
-                {...register("lastName")}
+                {...register('lastName')}
                 className={`w-full px-4 py-2 border ${errors.lastName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:ring-blue-500 focus:border-blue-500`}
               />
               {errors.lastName && <p className="mt-1 text-sm text-red-600">{errors.lastName.message}</p>}
@@ -141,7 +298,7 @@ const SettingsForm = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
               <div className="relative">
                 <input
-                  {...register("location")}
+                  {...register('location')}
                   className={`w-full pl-10 pr-4 py-2 border ${errors.location ? 'border-red-500' : 'border-gray-300'} rounded-md focus:ring-blue-500 focus:border-blue-500`}
                 />
                 <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -153,7 +310,7 @@ const SettingsForm = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">ID number</label>
               <div className="relative">
                 <input
-                  {...register("idNumber")}
+                  {...register('idNumber')}
                   className={`w-full pl-10 pr-4 py-2 border ${errors.idNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:ring-blue-500 focus:border-blue-500`}
                 />
                 <IdCard className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -172,7 +329,7 @@ const SettingsForm = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Board certification ID</label>
               <input
-                {...register("certificationId")}
+                {...register('certificationId')}
                 className={`w-full px-4 py-2 border ${errors.certificationId ? 'border-red-500' : 'border-gray-300'} rounded-md focus:ring-blue-500 focus:border-blue-500`}
               />
               {errors.certificationId && <p className="mt-1 text-sm text-red-600">{errors.certificationId.message}</p>}
@@ -182,7 +339,7 @@ const SettingsForm = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Education</label>
               <div className="relative">
                 <input
-                  {...register("education")}
+                  {...register('education')}
                   className={`w-full pl-10 pr-4 py-2 border ${errors.education ? 'border-red-500' : 'border-gray-300'} rounded-md focus:ring-blue-500 focus:border-blue-500`}
                 />
                 <GraduationCap className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -194,7 +351,7 @@ const SettingsForm = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Hospital name</label>
               <div className="relative">
                 <input
-                  {...register("hospital")}
+                  {...register('hospital')}
                   className={`w-full pl-10 pr-4 py-2 border ${errors.hospital ? 'border-red-500' : 'border-gray-300'} rounded-md focus:ring-blue-500 focus:border-blue-500`}
                 />
                 <Hospital className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -206,7 +363,7 @@ const SettingsForm = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Phone number</label>
               <div className="relative">
                 <input
-                  {...register("phone")}
+                  {...register('phone')}
                   className={`w-full pl-10 pr-4 py-2 border ${errors.phone ? 'border-red-500' : 'border-gray-300'} rounded-md focus:ring-blue-500 focus:border-blue-500`}
                 />
                 <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -221,7 +378,7 @@ const SettingsForm = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Medical license number</label>
             <input
-              {...register("licenseNumber")}
+              {...register('licenseNumber')}
               className={`w-full px-4 py-2 border ${errors.licenseNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:ring-blue-500 focus:border-blue-500`}
             />
             {errors.licenseNumber && <p className="mt-1 text-sm text-red-600">{errors.licenseNumber.message}</p>}
@@ -229,7 +386,7 @@ const SettingsForm = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Qualifications</label>
             <input
-              {...register("qualifications")}
+              {...register('qualifications')}
               className={`w-full px-4 py-2 border ${errors.qualifications ? 'border-red-500' : 'border-gray-300'} rounded-md focus:ring-blue-500 focus:border-blue-500`}
             />
             {errors.qualifications && <p className="mt-1 text-sm text-red-600">{errors.qualifications.message}</p>}
@@ -243,86 +400,136 @@ const SettingsForm = () => {
             <span>Prescription Templates</span>
           </h4>
 
-          <div className="flex flex-wrap items-center gap-4 mb-6">
-            {['Prescription 1', 'Prescription 2', 'Prescription 3'].map((prescription) => (
-              <label key={prescription} className="flex items-center cursor-pointer">
-                <input
-                  type="radio"
-                  {...register("prescriptionTemplate")}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                  value={prescription}
-                  checked={selectedPrescription === prescription}
-                  onChange={() => handlePrescriptionChange(prescription)}
-                />
-                <span className="ml-2 text-sm font-medium text-gray-700">{prescription}</span>
-              </label>
-            ))}
-            
-            <button
-              type="button"
-              onClick={handlePrescriptionTemplateClick}
-              className="ml-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
-            >
-              <FileText className="h-4 w-4" />
-              <span>Manage Templates</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[1, 2, 3].map((item) => (
-              <div key={item} className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors cursor-pointer">
-                <div className="h-32 bg-gray-100 rounded flex items-center justify-center mb-2">
-                  <FileText className="h-8 w-8 text-gray-400" />
-                </div>
-                <p className="text-sm font-medium text-center">Template {item}</p>
+          {templates.length === 0 ? (
+            <div className="text-center py-8">
+              <FileText className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No templates</h3>
+              <p className="mt-1 text-sm text-gray-500">Get started by creating a new template.</p>
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={handlePrescriptionTemplateClick}
+                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <FileText className="-ml-1 mr-2 h-5 w-5" />
+                  New Template
+                </button>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <>
+              <fieldset className="flex flex-wrap items-center gap-4 mb-6">
+                <legend className="sr-only">Select a prescription template</legend>
+                {templates.map((template) => (
+                  <label key={template._id} className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      {...register('prescriptionTemplate')}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      value={template._id}
+                    />
+                    <span className="ml-2 text-sm font-medium text-gray-700">
+                      {template.name}
+                      {template.isDefault && (
+                        <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                          Default
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                ))}
+                
+                <button
+                  type="button"
+                  onClick={handlePrescriptionTemplateClick}
+                  className="ml-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  <span>New Template</span>
+                </button>
+              </fieldset>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {templates.map((template) => (
+                  <div 
+                    key={template._id} 
+                    className={`border rounded-lg p-4 hover:border-blue-300 transition-colors cursor-pointer relative ${
+                      profileData?.prescriptionTemplate === template._id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                    }`}
+                    onClick={() => setValue('prescriptionTemplate', template._id)}
+                  >
+                    <div className="absolute top-2 right-2 flex gap-2">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditTemplate(template);
+                        }}
+                        className="p-1 text-gray-500 hover:text-blue-600"
+                        aria-label={`Edit ${template.name} template`}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm('Are you sure you want to delete this template?')) {
+                            deleteTemplate(template._id);
+                          }
+                        }}
+                        className="p-1 text-gray-500 hover:text-red-600"
+                        aria-label={`Delete ${template.name} template`}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    
+                    <div className="h-32 bg-gray-100 rounded flex items-center justify-center mb-2">
+                      <FileText className="h-8 w-8 text-gray-400" />
+                    </div>
+                    <p className="text-sm font-medium text-center">
+                      {template.name}
+                      {template.isDefault && (
+                        <span className="ml-1 text-xs text-blue-600">(Default)</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-500 text-center mt-1">
+                      Created: {new Date(template.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Form Actions */}
-        <div className="mt-8 flex justify-end gap-3">
-          <button
-            type="button"
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Cancel
-          </button>
+        {/* Submit Button */}
+        <div className="mt-8 flex justify-end">
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 flex items-center gap-2"
             disabled={isSaving}
+            className={`px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2 ${
+              isSaving ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
           >
-            {isSaving ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Saving...
-              </>
-            ) : (
-              <>
-                <Check className="h-4 w-4" />
-                <span>Save Changes</span>
-              </>
-            )}
+            <Check className="h-4 w-4" />
+            <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
           </button>
         </div>
       </form>
 
       {/* Prescription Template Popup */}
       {showPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0  bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
               <h3 className="text-xl font-semibold flex items-center gap-2">
                 <FileText className="h-5 w-5 text-blue-600" />
-                <span>{selectedPrescription} Template</span>
+                <span>{selectedTemplate ? 'Edit' : 'New'} Template</span>
               </h3>
               <button
                 onClick={closePopup}
                 className="p-1 rounded-full hover:bg-gray-100"
+                aria-label="Close popup"
               >
                 <X className="h-5 w-5 text-gray-500" />
               </button>
@@ -331,14 +538,19 @@ const SettingsForm = () => {
             <div className="p-6">
               <div className="flex border-b border-gray-200 mb-4">
                 <button
-                  className={`px-4 py-2 font-medium text-sm flex items-center gap-2 ${activeTab === 'view' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                  className={`px-4 py-2 font-medium text-sm flex items-center gap-2 ${
+                    activeTab === 'view' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'
+                  }`}
                   onClick={() => setActiveTab('view')}
+                  disabled={!selectedTemplate}
                 >
                   <Eye className="h-4 w-4" />
                   <span>View</span>
                 </button>
                 <button
-                  className={`px-4 py-2 font-medium text-sm flex items-center gap-2 ${activeTab === 'edit' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                  className={`px-4 py-2 font-medium text-sm flex items-center gap-2 ${
+                    activeTab === 'edit' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'
+                  }`}
                   onClick={() => setActiveTab('edit')}
                 >
                   <Edit className="h-4 w-4" />
@@ -346,44 +558,62 @@ const SettingsForm = () => {
                 </button>
               </div>
 
-              {activeTab === 'view' && (
+              {activeTab === 'view' && selectedTemplate && (
                 <div className="space-y-4">
                   <div className="p-4 border border-gray-200 rounded-lg">
-                    <h4 className="font-medium mb-2">Header</h4>
-                    <p className="text-gray-600">Dr. {selectedPrescription}</p>
+                    <h4 className="font-medium mb-2">Template Content</h4>
+                    <pre className="text-gray-600 whitespace-pre-wrap">
+                      {selectedTemplate.content || 'No content available'}
+                    </pre>
                   </div>
-                  <div className="p-4 border border-gray-200 rounded-lg">
-                    <h4 className="font-medium mb-2">Standard Medications</h4>
-                    <ul className="list-disc pl-5 space-y-1 text-gray-600">
-                      <li>Amoxicillin 500mg - 1 tablet every 8 hours for 7 days</li>
-                      <li>Ibuprofen 400mg - As needed for pain</li>
-                      <li>Loratadine 10mg - Daily for allergies</li>
-                    </ul>
-                  </div>
-                  <div className="p-4 border border-gray-200 rounded-lg">
-                    <h4 className="font-medium mb-2">Footer Notes</h4>
-                    <p className="text-gray-600">Follow up in 2 weeks if symptoms persist.</p>
+                  <div className="flex justify-end gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setDefaultTemplate(selectedTemplate._id)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+                      disabled={selectedTemplate.isDefault}
+                    >
+                      {selectedTemplate.isDefault ? 'Current Default' : 'Set as Default'}
+                    </button>
                   </div>
                 </div>
               )}
 
               {activeTab === 'edit' && (
-                <div className="space-y-4">
+                <form 
+                  onSubmit={handleTemplateSubmit((data) => {
+                    if (selectedTemplate) {
+                      updateTemplate(selectedTemplate._id, data);
+                    } else {
+                      createTemplate(data);
+                    }
+                  })}
+                  className="space-y-4"
+                >
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Template Name</label>
                     <input
-                      type="text"
-                      defaultValue={selectedPrescription}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                      {...registerTemplate('name')}
+                      className={`w-full px-3 py-2 border ${
+                        templateErrors.name ? 'border-red-500' : 'border-gray-300'
+                      } rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
                     />
+                    {templateErrors.name && (
+                      <p className="mt-1 text-sm text-red-600">{templateErrors.name.message}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Template Content</label>
                     <textarea
+                      {...registerTemplate('content')}
                       rows={8}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                      defaultValue={`Prescription Template for ${selectedPrescription}\n\nPatient: [Patient Name]\nDate: [Prescription Date]\n\nMedications:\n- [Medication 1]\n- [Medication 2]\n\nInstructions:\n[Detailed Instructions]`}
+                      className={`w-full px-3 py-2 border ${
+                        templateErrors.content ? 'border-red-500' : 'border-gray-300'
+                      } rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500`}
                     />
+                    {templateErrors.content && (
+                      <p className="mt-1 text-sm text-red-600">{templateErrors.content.message}</p>
+                    )}
                   </div>
                   <div className="flex justify-end gap-3 pt-4">
                     <button
@@ -394,14 +624,14 @@ const SettingsForm = () => {
                       Cancel
                     </button>
                     <button
-                      type="button"
+                      type="submit"
                       className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 flex items-center gap-2"
                     >
                       <Check className="h-4 w-4" />
-                      <span>Save Template</span>
+                      <span>{selectedTemplate ? 'Update' : 'Create'} Template</span>
                     </button>
                   </div>
-                </div>
+                </form>
               )}
             </div>
           </div>
