@@ -1,27 +1,61 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import SettingsForm from '../../components/SettingsForm';
 import { useAuth } from '../../contexts/AuthContext';
+import api from '../../utils/api'; // Ensure this is the correct path to your API utility
 
-const DoctorSettings  = () => {
+const DoctorSettings = () => {
   const { user, logout } = useAuth();
+  const [isProfileLoaded, setIsProfileLoaded] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        console.log('Fetching doctor profile data...');
+        const profileResponse = await api.get('/doctor/profile'); // Make sure the URL is correct
+
+        console.log('Profile fetched successfully:', profileResponse.data);
+        
+        // Set the state to true once the profile data is fetched
+        if (profileResponse.data) {
+          setIsProfileLoaded(true);
+        } else {
+          setIsProfileLoaded(false);
+          setError('No profile data found');
+        }
+      } catch (error) {
+        console.error('Error fetching doctor profile:', error);
+        setError('Failed to fetch profile data');
+        setIsProfileLoaded(false);
+      }
+    };
+    
+    fetchData();
+  }, []);
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       {/* Header */}
-     
-
+      
       {/* Settings Content */}
       <main className="flex-1 overflow-y-auto p-6">
         <div className="max-w-6xl mx-auto">
           {/* Account Settings */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="bg-red rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="p-6 border-b border-gray-200">
               <h3 className="text-lg font-semibold">Account Settings</h3>
               <p className="text-sm text-gray-500 mt-1">
                 Manage your account settings and preferences
               </p>
             </div>
-            <SettingsForm />
+            {/* Show the SettingsForm if profile is loaded */}
+            {isProfileLoaded ? (
+              <SettingsForm />
+            ) : error ? (
+              <div className="text-center text-red-500">{error}</div>
+            ) : (
+              <div className="text-center text-gray-500">Loading your profile...</div>
+            )}
           </div>
 
           {/* Danger Zone */}
@@ -45,10 +79,11 @@ const DoctorSettings  = () => {
               </div>
             </div>
           </div>
+          
         </div>
       </main>
     </div>
   );
 };
 
-export default DoctorSettings ;
+export default DoctorSettings;

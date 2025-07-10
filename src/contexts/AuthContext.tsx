@@ -39,6 +39,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+
+
+  const verifyAuth = async () => {
+    try {
+      const response = await fetch('http://localhost:8080/api/auth/verify', {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const userData = await response.json();
+        console.log(response)
+        setUser(userData);
+        setIsAuthenticated(true);
+      } else {
+        logout();
+      }
+    } catch (err) {
+      logout();
+    }
+  };
+  
+  // Update your useEffect
+  useEffect(() => {
+    verifyAuth();
+  }, []);
   const login = (email: string, role: string, name: string, token: string) => {
     const normalizedRole = normalizeRole(role);
     const userData = { email, role: normalizedRole, name, token };
@@ -59,6 +84,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     </AuthContext.Provider>
   );
 };
+
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

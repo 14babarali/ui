@@ -42,25 +42,19 @@ const LoginPage: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-        credentials: 'include'
+        credentials: 'include' // This is crucial for cookies
       });
-      // if (response.data.token) {
-      //   localStorage.setItem('token', response.data.token);
-      // }
+  
       const result = await response.json();
-
+  
       if (response.ok) {
-        const { token, email, role, name } = result;
-        login(email, role, name, token);
+        login(result.email, result.role, result.name, result.token);
         
-        const normalizedRole = role.toLowerCase();
-        if (normalizedRole === 'admin') {
-          navigate('/admin');
-        } else if (normalizedRole === 'doctor') {
-          navigate('/dashboard');
-        } else {
-          navigate('/');
-        }
+        // Redirect based on role
+        const redirectPath = result.role.toLowerCase() === 'admin' 
+          ? '/admin' 
+          : '/dashboard';
+        navigate(redirectPath);
       } else {
         alert(result.message || 'Login failed');
       }

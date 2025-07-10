@@ -4,8 +4,10 @@ import { useAuth } from '../contexts/AuthContext';
 const PrivateRoute = ({ children, roles }: { children: JSX.Element, roles?: string[] }) => {
   const { isAuthenticated, user } = useAuth();
   const location = useLocation();
+console.log(isAuthenticated)
+const userSession = JSON.parse(localStorage.getItem("user") )
 
-  if (!isAuthenticated) {
+  if (!userSession?.token) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

@@ -34,18 +34,15 @@ const DoctorMainLayout = () => {
   }, [user]);
 
   const renderContent = () => {
-    // If doctor is not verified, only show settings
     if (user?.role === 'Doctor' && !user?.isVerified) {
       return <DoctorSettings />;
     }
     
-    // Otherwise show the selected tab
     switch (selectedTab) {
       case 'dashboard': return <DoctorDashboard />;
       case 'patients': return <PatientsList />;
       case 'subscription': return <ActiveSubscription />;
       case 'settings': return <DoctorSettings />;
-      default: return <DoctorDashboard />;
     }
   };
 

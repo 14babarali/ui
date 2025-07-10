@@ -9,7 +9,7 @@ const FooterComponent = () => {
           <h3 className="text-2xl font-semibold mb-4">Contact Us</h3>
           <p className="text-sm">123 MedAiLane, Suite 100</p>
           <p className="text-sm">Phone: (555) 123-4567</p>
-          <p className="text-sm">Email: info@dentalcare.com</p>
+          <p className="text-sm">Email: info@medai.com</p>
         </div>
 
         {/* Quick Links */}

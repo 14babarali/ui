@@ -53,22 +53,22 @@ const DoctorsTable = () => {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
-      
+      console.log(response.data.data)
       // Transform the data to match our table format
-      const transformedData = response.data.map(doctor => ({
-        id: doctor._id,
-        name: `${doctor.firstName} ${doctor.lastName}`,
-        firstName: doctor.firstName,
-        lastName: doctor.lastName,
-        email: doctor.user.email,
-        location: doctor.location,
-        lastCheck: new Date(doctor.updatedAt).toLocaleDateString('en-GB'),
-        phone: doctor.phone,
-        licenseNumber: doctor.licenseNumber,
-        subscription: doctor.user.subscription?.plan?.name || 'Free Trial',
-        isVerified: doctor.verified,
-        isActive: doctor.user.isActive,
-        isSuspended: doctor.user.isSuspended,
+      const transformedData = response.data.data.map(doctor => ({
+        id: doctor?._id,
+        name: `${doctor?.firstName} ${doctor?.lastName}`,
+        firstName: doctor?.firstName,
+        lastName: doctor?.lastName,
+        email: doctor?.user?.email,
+        location: doctor?.location,
+        lastCheck: new Date(doctor?.updatedAt).toLocaleDateString('en-GB'),
+        phone: doctor?.phone,
+        licenseNumber: doctor?.licenseNumber,
+        subscription: doctor?.user?.subscription?.plan?.name || 'Free Trial',
+        isVerified: doctor?.verified,
+        isActive: doctor?.user?.isActive,
+        isSuspended: doctor?.user?.isSuspended,
         avatarColor: ['blue', 'purple', 'green', 'yellow'][Math.floor(Math.random() * 4)]
       }));
 

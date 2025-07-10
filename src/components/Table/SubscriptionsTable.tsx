@@ -11,6 +11,8 @@ import {
 import axios, { AxiosError } from 'axios';
 import { toast } from 'react-toastify';
 
+import api from "../../utils/api"
+
 interface SubscriptionPlan {
   _id: string;
   name: string;
@@ -51,7 +53,7 @@ const SubscriptionsTable = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get<SubscriptionPlan[]>('/api/subscriptions/plans');
+      const response = await api.get<SubscriptionPlan[]>('/subscriptions/plans');
       setPlans(Array.isArray(response.data) ? response.data : []); // Ensure the response is an array
     } catch (err) {
       const error = err as AxiosError<{ message?: string }>;
@@ -70,12 +72,12 @@ const SubscriptionsTable = () => {
       
       if (editingId) {
         // Update existing plan
-        const response = await axios.put<SubscriptionPlan>(`/api/subscriptions/plans/${editingId}`, formData);
+        const response = await api.put<SubscriptionPlan>(`/subscriptions/plans/${editingId}`, formData);
         setPlans(plans.map(plan => plan._id === editingId ? response.data : plan));
         toast.success('Plan updated successfully!');
       } else {
         // Create new plan
-        const response = await axios.post<SubscriptionPlan>('/api/subscriptions/plans', formData);
+        const response = await api.post<SubscriptionPlan>('/subscriptions/plans', formData);
         setPlans([...plans, response.data]);
         toast.success('Plan created successfully!');
       }
@@ -114,7 +116,7 @@ const SubscriptionsTable = () => {
     
     try {
       setLoading(true);
-      await axios.delete(`/api/subscriptions/plans/${id}`);
+      await api.delete(`/subscriptions/plans/${id}`);
       setPlans(plans.filter(plan => plan._id !== id));
       toast.success('Plan deleted successfully');
     } catch (err) {
