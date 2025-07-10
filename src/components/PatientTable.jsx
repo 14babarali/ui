@@ -6,7 +6,7 @@ import {
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import * as XLSX from 'xlsx';
-
+import api from ".././utils/api"
 const PatientTable = () => {
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +45,7 @@ const PatientTable = () => {
         toDate: filters.toDate ? new Date(filters.toDate).toISOString() : ''
       };
 
-      const response = await axios.get('/api/patients', { params });
+      const response = await api.get('/patients', { params });
       const patientsData = Array.isArray(response?.data) ? response.data : [];
       setPatients(patientsData);
     } catch (err) {
@@ -76,7 +76,7 @@ const PatientTable = () => {
   const handleCreatePatient = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('/api/patients', newPatient);
+      const response = await api.post('/patients', newPatient);
       setPatients([response.data, ...patients]);
       setShowCreateModal(false);
       setNewPatient({

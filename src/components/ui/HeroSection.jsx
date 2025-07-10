@@ -1,5 +1,5 @@
 import React from 'react';
-import { Images } from '../assets';
+import { Images } from '../../assets';
 import { Link } from 'react-router-dom';
 
 const HeroSection = () => {

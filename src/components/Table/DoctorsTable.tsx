@@ -16,78 +16,67 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
-  Plus
+  Plus,
+  Save,
+  Loader2
 } from 'lucide-react';
-import { z } from 'zod';
-
-// Define Zod schema for doctor data
-const doctorSchema = z.object({
-  id: z.string(),
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email format"),
-  location: z.string().min(2, "Location must be specified"),
-  lastCheck: z.string().regex(/^\d{2}-\d{2}-\d{4}$/, "Date format should be DD-MM-YYYY"),
-  phone: z.string().regex(/^\d{4}-\d{5}$/, "Phone format should be XXXX-XXXXX"),
-  subscription: z.enum(['Free Trial', 'VIP Plan', 'Basic Plan', 'Premium Plan']),
-  isVerified: z.boolean(),
-  isActive: z.boolean(),
-  isSuspended: z.boolean().optional(),
-  avatarColor: z.enum(['blue', 'purple', 'green', 'yellow'])
-});
-
-// Mock data that would normally come from your backend
-const mockDoctors = [
-  {
-    id: '1',
-    name: 'Dr. Ali Khan',
-    email: 'doctor@gmail.com',
-    location: 'Islamabad, PK',
-    lastCheck: '03-07-2025',
-    phone: '9320-40344',
-    subscription: 'Free Trial',
-    isVerified: true,
-    isActive: true,
-    avatarColor: 'blue'
-  },
-  {
-    id: '2',
-    name: 'Dr. Sara Ahmed',
-    email: 'doctor2@gmail.com',
-    location: 'Lahore, PK',
-    lastCheck: '02-07-2025',
-    phone: '9320-40345',
-    subscription: 'VIP Plan',
-    isVerified: false,
-    isActive: false,
-    isSuspended: true,
-    avatarColor: 'purple'
-  },
-  // Add more mock data as needed
-];
-
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import api from "../../utils/api"
 const DoctorsTable = () => {
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedDoctors, setSelectedDoctors] = useState([]);
+  const [editingId, setEditingId] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    location: '',
+    phone: '',
+    licenseNumber: '',
+    verified: false,
+    active: false
+  });
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Fetch and validate doctors data
+  // Fetch doctors data from backend
   const fetchDoctors = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // In a real app, this would be an API call:
-      // const response = await fetch('/api/doctors');
-      // const data = await response.json();
+      const response = await api.get('/admin/doctors', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       
-      // Validate the data against our schema
-      const validatedData = z.array(doctorSchema).parse(mockDoctors);
-      setDoctors(validatedData);
+      // Transform the data to match our table format
+      const transformedData = response.data.map(doctor => ({
+        id: doctor._id,
+        name: `${doctor.firstName} ${doctor.lastName}`,
+        firstName: doctor.firstName,
+        lastName: doctor.lastName,
+        email: doctor.user.email,
+        location: doctor.location,
+        lastCheck: new Date(doctor.updatedAt).toLocaleDateString('en-GB'),
+        phone: doctor.phone,
+        licenseNumber: doctor.licenseNumber,
+        subscription: doctor.user.subscription?.plan?.name || 'Free Trial',
+        isVerified: doctor.verified,
+        isActive: doctor.user.isActive,
+        isSuspended: doctor.user.isSuspended,
+        avatarColor: ['blue', 'purple', 'green', 'yellow'][Math.floor(Math.random() * 4)]
+      }));
+
+      setDoctors(transformedData);
     } catch (err) {
-      console.error('Data validation failed:', err);
+      console.error('Error fetching doctors:', err);
       setError('Failed to load doctors data. Please try again.');
-      setDoctors([]);
+      toast.error('Failed to load doctors data');
     } finally {
       setLoading(false);
     }
@@ -110,6 +99,116 @@ const DoctorsTable = () => {
       setSelectedDoctors(doctors.map(doctor => doctor.id));
     } else {
       setSelectedDoctors([]);
+    }
+  };
+
+  const handleEditClick = (doctor) => {
+    setEditingId(doctor.id);
+    setEditFormData({
+      firstName: doctor.firstName,
+      lastName: doctor.lastName,
+      email: doctor.email,
+      location: doctor.location,
+      phone: doctor.phone,
+      licenseNumber: doctor.licenseNumber,
+      verified: doctor.isVerified,
+      active: doctor.isActive
+    });
+  };
+
+  const handleEditFormChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setEditFormData({
+      ...editFormData,
+      [name]: type === 'checkbox' ? checked : value
+    });
+  };
+
+  const handleSaveClick = async (id) => {
+    try {
+      setIsSaving(true);
+      
+      // Update doctor profile
+      await api.put(`/admin/doctors/${id}`, {
+        firstName: editFormData.firstName,
+        lastName: editFormData.lastName,
+        location: editFormData.location,
+        phone: editFormData.phone,
+        licenseNumber: editFormData.licenseNumber,
+        verified: editFormData.verified
+      }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      // Update user status if changed
+      const doctor = doctors.find(d => d.id === id);
+      if (doctor.isActive !== editFormData.active) {
+        await api.put(`/admin/users/${doctor.userId}`, {
+          isActive: editFormData.active
+        }, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+      }
+
+      toast.success('Doctor updated successfully');
+      setEditingId(null);
+      fetchDoctors(); // Refresh data
+    } catch (err) {
+      console.error('Error updating doctor:', err);
+      toast.error('Failed to update doctor');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteDoctor = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this doctor?')) return;
+    
+    try {
+      await api.delete(`/admin/doctors/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      toast.success('Doctor deleted successfully');
+      fetchDoctors(); // Refresh data
+    } catch (err) {
+      console.error('Error deleting doctor:', err);
+      toast.error('Failed to delete doctor');
+    }
+  };
+
+  const handleSuspendDoctor = async (id, isCurrentlySuspended) => {
+    const action = isCurrentlySuspended ? 'unsuspend' : 'suspend';
+    if (!window.confirm(`Are you sure you want to ${action} this doctor?`)) return;
+    
+    try {
+      await api.put(`/admin/users/${id}/suspend`, {
+        suspend: !isCurrentlySuspended
+      }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      toast.success(`Doctor ${action}ed successfully`);
+      fetchDoctors(); // Refresh data
+    } catch (err) {
+      console.error(`Error ${action}ing doctor:`, err);
+      toast.error(`Failed to ${action} doctor`);
+    }
+  };
+
+  const getAvatarClass = (color) => {
+    switch (color) {
+      case 'blue': return 'bg-blue-100 text-blue-600';
+      case 'purple': return 'bg-purple-100 text-purple-600';
+      case 'green': return 'bg-green-100 text-green-600';
+      case 'yellow': return 'bg-yellow-100 text-yellow-600';
+      default: return 'bg-gray-100 text-gray-600';
     }
   };
 
@@ -138,16 +237,6 @@ const DoctorsTable = () => {
       </div>
     );
   }
-
-  const getAvatarClass = (color) => {
-    switch (color) {
-      case 'blue': return 'bg-blue-100 text-blue-600';
-      case 'purple': return 'bg-purple-100 text-purple-600';
-      case 'green': return 'bg-green-100 text-green-600';
-      case 'yellow': return 'bg-yellow-100 text-yellow-600';
-      default: return 'bg-gray-100 text-gray-600';
-    }
-  };
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
@@ -218,17 +307,46 @@ const DoctorsTable = () => {
                     <div className={`h-8 w-8 rounded-full flex items-center justify-center ${getAvatarClass(doctor.avatarColor)}`}>
                       <User className="h-4 w-4" />
                     </div>
-                    <div>
-                      <p className="font-medium">{doctor.name}</p>
-                      <p className="text-gray-500 text-xs">{doctor.email}</p>
-                    </div>
+                    {editingId === doctor.id ? (
+                      <div className="flex flex-col gap-1">
+                        <input
+                          type="text"
+                          name="firstName"
+                          value={editFormData.firstName}
+                          onChange={handleEditFormChange}
+                          className="border rounded px-2 py-1 w-24"
+                        />
+                        <input
+                          type="text"
+                          name="lastName"
+                          value={editFormData.lastName}
+                          onChange={handleEditFormChange}
+                          className="border rounded px-2 py-1 w-24"
+                        />
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="font-medium">{doctor.name}</p>
+                        <p className="text-gray-500 text-xs">{doctor.email}</p>
+                      </div>
+                    )}
                   </div>
                 </td>
                 <td className="p-3">
-                  <div className="flex items-center gap-1">
-                    <MapPin className="h-4 w-4 text-gray-400" />
-                    <span>{doctor.location}</span>
-                  </div>
+                  {editingId === doctor.id ? (
+                    <input
+                      type="text"
+                      name="location"
+                      value={editFormData.location}
+                      onChange={handleEditFormChange}
+                      className="border rounded px-2 py-1 w-full"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <MapPin className="h-4 w-4 text-gray-400" />
+                      <span>{doctor.location}</span>
+                    </div>
+                  )}
                 </td>
                 <td className="p-3">
                   <div className="flex items-center gap-1">
@@ -237,10 +355,20 @@ const DoctorsTable = () => {
                   </div>
                 </td>
                 <td className="p-3">
-                  <div className="flex items-center gap-1">
-                    <Phone className="h-4 w-4 text-gray-400" />
-                    <span>{doctor.phone}</span>
-                  </div>
+                  {editingId === doctor.id ? (
+                    <input
+                      type="text"
+                      name="phone"
+                      value={editFormData.phone}
+                      onChange={handleEditFormChange}
+                      className="border rounded px-2 py-1 w-full"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <Phone className="h-4 w-4 text-gray-400" />
+                      <span>{doctor.phone}</span>
+                    </div>
+                  )}
                 </td>
                 <td className="p-3">
                   <span className={`px-2 py-1 text-xs rounded-full ${
@@ -254,7 +382,20 @@ const DoctorsTable = () => {
                 <td className="p-3">
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-1">
-                      {doctor.isVerified ? (
+                      {editingId === doctor.id ? (
+                        <label className="flex items-center gap-1">
+                          <input
+                            type="checkbox"
+                            name="verified"
+                            checked={editFormData.verified}
+                            onChange={handleEditFormChange}
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className={editFormData.verified ? 'text-green-600' : 'text-red-600'}>
+                            {editFormData.verified ? 'Verified' : 'Unverified'}
+                          </span>
+                        </label>
+                      ) : doctor.isVerified ? (
                         <>
                           <BadgeCheck className="h-4 w-4 text-green-500" />
                           <span className="text-green-600">Verified</span>
@@ -267,7 +408,20 @@ const DoctorsTable = () => {
                       )}
                     </div>
                     <div className="flex items-center gap-1">
-                      {doctor.isActive ? (
+                      {editingId === doctor.id ? (
+                        <label className="flex items-center gap-1">
+                          <input
+                            type="checkbox"
+                            name="active"
+                            checked={editFormData.active}
+                            onChange={handleEditFormChange}
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className={editFormData.active ? 'text-green-600' : 'text-red-600'}>
+                            {editFormData.active ? 'Active' : 'Inactive'}
+                          </span>
+                        </label>
+                      ) : doctor.isActive ? (
                         <>
                           <Check className="h-4 w-4 text-green-500" />
                           <span className="text-green-600">Active</span>
@@ -283,35 +437,58 @@ const DoctorsTable = () => {
                 </td>
                 <td className="p-3">
                   <div className="flex gap-2">
-                    <button 
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-md"
-                      title="Edit"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                    <button 
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-md"
-                      title="Delete"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                    {doctor.isSuspended ? (
-                      <button 
-                        className="px-3 py-1 bg-gray-100 text-gray-700 rounded-md text-sm flex items-center gap-1 cursor-not-allowed" 
-                        disabled
-                        title="Suspended"
-                      >
-                        <Clock className="h-4 w-4" />
-                        <span>Suspended</span>
-                      </button>
+                    {editingId === doctor.id ? (
+                      <>
+                        <button 
+                          onClick={() => handleSaveClick(doctor.id)}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-md"
+                          disabled={isSaving}
+                        >
+                          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        </button>
+                        <button 
+                          onClick={() => setEditingId(null)}
+                          className="p-2 text-gray-600 hover:bg-gray-50 rounded-md"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </>
                     ) : (
-                      <button 
-                        className="px-3 py-1 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 flex items-center gap-1"
-                        title="Suspend"
-                      >
-                        <AlertTriangle className="h-4 w-4" />
-                        <span>Suspend</span>
-                      </button>
+                      <>
+                        <button 
+                          onClick={() => handleEditClick(doctor)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-md"
+                          title="Edit"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteDoctor(doctor.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-md"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                        {doctor.isSuspended ? (
+                          <button 
+                            onClick={() => handleSuspendDoctor(doctor.id, true)}
+                            className="px-3 py-1 bg-gray-100 text-gray-700 rounded-md text-sm flex items-center gap-1 hover:bg-gray-200"
+                            title="Unsuspend"
+                          >
+                            <Clock className="h-4 w-4" />
+                            <span>Unsuspend</span>
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={() => handleSuspendDoctor(doctor.id, false)}
+                            className="px-3 py-1 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 flex items-center gap-1"
+                            title="Suspend"
+                          >
+                            <AlertTriangle className="h-4 w-4" />
+                            <span>Suspend</span>
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 </td>

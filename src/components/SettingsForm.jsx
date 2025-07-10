@@ -1,3 +1,5 @@
+//src/components/SettingsForm.jsx
+
 import React, { useState, useEffect } from 'react';
 import { 
   User,
@@ -16,7 +18,7 @@ import {
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import axios from 'axios';
+import api from '.././utils/api';
 import { toast } from 'react-toastify';
 
 // Define validation schema for doctor profile
@@ -45,7 +47,7 @@ const doctorProfileSchema = z.object({
     .min(5, 'License number must be at least 5 characters'),
   qualifications: z.string()
     .min(2, 'Qualifications must be at least 2 characters'),
-  prescriptionTemplate: z.string().optional(), // Make optional to avoid validation errors
+  prescriptionTemplate: z.string().optional(),
 });
 
 // Define validation schema for prescription templates
@@ -56,7 +58,7 @@ const templateSchema = z.object({
 
 const SettingsForm = () => {
   const [showPopup, setShowPopup] = useState(false);
-  const [activeTab, setActiveTab] = useState('edit'); // Default to edit for new templates
+  const [activeTab, setActiveTab] = useState('edit');
   const [isSaving, setIsSaving] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -92,21 +94,15 @@ const SettingsForm = () => {
         setLoading(true);
         setError(null);
 
-        // Fetch profile and templates concurrently
         const [profileResponse, templatesResponse] = await Promise.all([
-          axios.get('/api/doctor/profile', {
-            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-          }),
-          axios.get('/api/doctor/templates', {
-            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-          }),
+          api.get('/doctor/profile'),
+          api.get('/doctor/templates')
         ]);
 
         setProfileData(profileResponse.data);
         const fetchedTemplates = Array.isArray(templatesResponse.data) ? templatesResponse.data : [];
         setTemplates(fetchedTemplates);
 
-        // Set default template
         const defaultTemplate = fetchedTemplates.find((t) => t.isDefault)?._id || fetchedTemplates[0]?._id || '';
         reset({
           ...profileResponse.data,
@@ -131,10 +127,7 @@ const SettingsForm = () => {
       setIsSaving(true);
       const { prescriptionTemplate, ...profileData } = data;
 
-      const response = await axios.put('/api/doctor/profile', profileData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
-
+      const response = await api.put('/doctor/profile', profileData);
       toast.success('Profile updated successfully!');
       setProfileData(response.data);
     } catch (error) {
@@ -150,7 +143,7 @@ const SettingsForm = () => {
     setShowPopup(true);
     setSelectedTemplate(null);
     setActiveTab('edit');
-    resetTemplate(); // Reset template form
+    resetTemplate();
   };
 
   const closePopup = () => {
@@ -169,10 +162,7 @@ const SettingsForm = () => {
   // Template management functions
   const createTemplate = async (templateData) => {
     try {
-      const response = await axios.post('/api/doctor/templates', templateData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
-
+      const response = await api.post('/doctor/templates', templateData);
       setTemplates([...templates, response.data]);
       toast.success('Template created successfully!');
       closePopup();
@@ -185,10 +175,7 @@ const SettingsForm = () => {
 
   const updateTemplate = async (id, templateData) => {
     try {
-      const response = await axios.put(`/api/doctor/templates/${id}`, templateData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
-
+      const response = await api.put(`/doctor/templates/${id}`, templateData);
       setTemplates(templates.map((t) => (t._id === id ? response.data : t)));
       toast.success('Template updated successfully!');
       closePopup();
@@ -201,10 +188,7 @@ const SettingsForm = () => {
 
   const deleteTemplate = async (id) => {
     try {
-      await axios.delete(`/api/doctor/templates/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
-
+      await api.delete(`/doctor/templates/${id}`);
       setTemplates(templates.filter((t) => t._id !== id));
       toast.success('Template deleted successfully!');
     } catch (error) {
@@ -216,10 +200,7 @@ const SettingsForm = () => {
 
   const setDefaultTemplate = async (id) => {
     try {
-      await axios.put(`/api/doctor/templates/${id}/set-default`, {}, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
-
+      await api.put(`/doctor/templates/${id}/set-default`, {});
       setTemplates(templates.map((t) => ({ ...t, isDefault: t._id === id })));
       setValue('prescriptionTemplate', id);
       toast.success('Default template set successfully!');
@@ -519,7 +500,7 @@ const SettingsForm = () => {
 
       {/* Prescription Template Popup */}
       {showPopup && (
-        <div className="fixed inset-0  bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
               <h3 className="text-xl font-semibold flex items-center gap-2">

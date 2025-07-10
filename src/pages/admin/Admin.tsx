@@ -19,12 +19,13 @@ import DoctorsTable from '../../components/Table/DoctorsTable';
 import SubscriptionsTable from '../../components/Table/SubscriptionsTable';
 import PaymentsTable from '../../components/Table/PaymentsTable';
 import PrescriptionsTable from '../../components/Table/PrescriptionsTable';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Admin = () => {
   const [selectedTab, setSelectedTab] = useState('doctors');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-
+  const { user, logout } = useAuth();
   const renderContent = () => {
     switch (selectedTab) {
       case 'doctors': return <DoctorsTable />;
@@ -130,7 +131,7 @@ const Admin = () => {
               <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
                 <User className="h-4 w-4 text-blue-600" />
               </div>
-              <span className="font-medium">Admin</span>
+              <span className="font-medium"> {user?.name || 'User'}</span>
               <ChevronDown className="h-4 w-4 text-gray-500" />
             </div>
           </div>

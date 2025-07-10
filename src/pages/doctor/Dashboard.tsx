@@ -1,12 +1,19 @@
-import React, { useState } from 'react';
-import Sidebar from '../../components/DocSidebar';
-import Header from '../../components/DocHeader';
+import React from 'react';
 import TableSection from '../../components/TableSection';
 import PatientTable from '../../components/PatientTable';
-import { Menu, X, Users, Activity, Calendar, Clock, Stethoscope, FileText, ArrowUpRight } from 'lucide-react';
+import {
+  Users,
+  Activity,
+  Calendar,
+  Clock,
+  Stethoscope,
+  FileText,
+  ArrowUpRight,
+} from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Dashboard = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { user, logout } = useAuth();
 
   // Dashboard mock data
   const stats = [
@@ -23,132 +30,92 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Sidebar for desktop */}
-      <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-white shadow-lg transform lg:translate-x-0 lg:static lg:inset-0 transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <Sidebar selectedPage="dashboard" />
-      </div>
+    <div className="flex flex-col min-h-screen bg-gray-50">
+      {/* Header */}
+      
 
-      {/* Mobile Sidebar Overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0  bg-opacity-50 z-20 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        ></div>
-      )}
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col relative overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between bg-white border-b border-gray-200 p-4 sticky top-0 z-10">
-          {/* Mobile Menu Button */}
-          <button
-            className="lg:hidden text-gray-600"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu className="h-6 w-6" />
-          </button>
-
-          {/* Header Title */}
-          <Header title="Dashboard Overview" />
-
-          {/* Header Actions */}
-          <div className="flex items-center gap-4">
-            {/* Example Actions */}
-            <button className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 transition-colors">
-              Upgrade Plan
-            </button>
-            <button className="text-sm border px-3 py-1.5 rounded hover:bg-gray-100 transition-colors">
-              Settings
-            </button>
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {stats.map((stat, index) => (
+              <div key={index} className="bg-white rounded-xl shadow-sm border p-6 flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">{stat.title}</p>
+                    <p className="text-2xl font-semibold mt-1">{stat.value}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-blue-50">
+                    <stat.icon className="h-5 w-5 text-blue-600" />
+                  </div>
+                </div>
+                <p className={`text-sm mt-3 ${stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+                  {stat.change} from last week
+                </p>
+              </div>
+            ))}
           </div>
-        </div>
 
-        {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-7xl mx-auto space-y-6">
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {stats.map((stat, index) => (
-                <div key={index} className="bg-white rounded-xl shadow-sm border p-6 flex flex-col justify-between">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-500">{stat.title}</p>
-                      <p className="text-2xl font-semibold mt-1">{stat.value}</p>
+          {/* Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Appointments */}
+            <div className="bg-white rounded-xl shadow-sm border p-6 lg:col-span-1">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Today's Appointments</h2>
+                <button className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
+                  View all <ArrowUpRight className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                {recentAppointments.map((appointment, index) => (
+                  <div key={index} className="flex items-start gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                    <div className={`p-2 rounded-full ${appointment.status === 'completed' ? 'bg-green-100' : 'bg-blue-100'}`}>
+                      <Stethoscope className={`h-4 w-4 ${appointment.status === 'completed' ? 'text-green-600' : 'text-blue-600'}`} />
                     </div>
-                    <div className="p-3 rounded-lg bg-blue-50">
-                      <stat.icon className="h-5 w-5 text-blue-600" />
+                    <div className="flex-1">
+                      <p className="font-medium">{appointment.name}</p>
+                      <p className="text-sm text-gray-500">{appointment.condition}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">{appointment.time}</p>
+                      <span className={`text-xs px-2 py-1 rounded-full ${appointment.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+                        {appointment.status}
+                      </span>
                     </div>
                   </div>
-                  <p className={`text-sm mt-3 ${stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
-                    {stat.change} from last week
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            {/* Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-              {/* Appointments */}
-              <div className="bg-white rounded-xl shadow-sm border p-6 lg:col-span-1">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">Today's Appointments</h2>
-                  <button className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
-                    View all <ArrowUpRight className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  {recentAppointments.map((appointment, index) => (
-                    <div key={index} className="flex items-start gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                      <div className={`p-2 rounded-full ${appointment.status === 'completed' ? 'bg-green-100' : 'bg-blue-100'}`}>
-                        <Stethoscope className={`h-4 w-4 ${appointment.status === 'completed' ? 'text-green-600' : 'text-blue-600'}`} />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium">{appointment.name}</p>
-                        <p className="text-sm text-gray-500">{appointment.condition}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">{appointment.time}</p>
-                        <span className={`text-xs px-2 py-1 rounded-full ${appointment.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
-                          {appointment.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Patient Table */}
-              <div className="lg:col-span-2">
-                <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-                  <TableSection>
-                    <PatientTable />
-                  </TableSection>
-                </div>
+                ))}
               </div>
             </div>
 
-            {/* Activity Chart Placeholder */}
-            <div className="bg-white rounded-xl shadow-sm border p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Weekly Activity</h2>
-                <select className="text-sm border rounded-md px-3 py-1 focus:ring-blue-500 focus:border-blue-500">
-                  <option>This Week</option>
-                  <option>Last Week</option>
-                  <option>This Month</option>
-                </select>
-              </div>
-              <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-                <Activity className="h-12 w-12 text-gray-400" />
-                <p className="ml-2 text-gray-500">Activity chart will appear here</p>
+            {/* Patient Table */}
+            <div className="lg:col-span-2">
+              <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                <TableSection>
+                  <PatientTable />
+                </TableSection>
               </div>
             </div>
-
           </div>
-        </main>
-      </div>
+
+          {/* Activity Chart Placeholder */}
+          <div className="bg-white rounded-xl shadow-sm border p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Weekly Activity</h2>
+              <select className="text-sm border rounded-md px-3 py-1 focus:ring-blue-500 focus:border-blue-500">
+                <option>This Week</option>
+                <option>Last Week</option>
+                <option>This Month</option>
+              </select>
+            </div>
+            <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
+              <Activity className="h-12 w-12 text-gray-400" />
+              <p className="ml-2 text-gray-500">Activity chart will appear here</p>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
   );
 };

@@ -1,13 +1,13 @@
 
 import React from 'react';
-import HeaderComponent from '../components/HeaderComponent';
-import HeroSection from '../components/HeroSection';
-import WelcomeSection from '../components/WelcomeSection';
-import ServicesSection from '../components/ServicesSection';
-import ContactSection from '../components/ContactSection';
-import ClientsSection from '../components/ClientsSection';
-import FAQSection from '../components/FAQSection';
-import FooterComponent from '../components/FooterComponent';
+import HeaderComponent from '.././components/ui/HeaderComponent';
+import HeroSection from '.././components/ui/HeroSection';
+import WelcomeSection from '.././components/ui/WelcomeSection';
+import ServicesSection from '.././components/ui/ServicesSection';
+import ContactSection from '.././components/ui/ContactSection';
+import ClientsSection from '.././components/ui/ClientsSection';
+import FAQSection from '.././components/ui/FAQSection';
+import FooterComponent from '.././components/ui/FooterComponent';
 
 const LandingPage = () => {
   return (

@@ -1,43 +1,55 @@
 import React from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
 
 import LandingPage from './pages/LandingPage';
-import Dashboard from './pages/doctor/Dashboard';
-import ActiveSubscription from './pages/doctor/ActiveSubscription';
-import Settings from './pages/doctor/Settings';
-import DoctorDashboard from './pages/doctor/DoctorDashboard';
+
+import DoctorMainLayout from './pages/doctor/DoctorMainLayout';
 import Admin from './pages/admin/Admin';
+
 import SignupPage from './pages/auth/SignupPage';
 import LoginPage from './pages/auth/LoginPage';
 import PrivateRoute from './routes/PrivateRoute';
 import NotFoundPage from './pages/NotFound';
-import Patients from './pages/doctor/Patients';
-
 
 const router = createBrowserRouter([
   { path: '/', element: <LandingPage /> },
   { path: '/login', element: <LoginPage /> },
-  { path: '/signup', element: <SignupPage /> 
-    
-  },
-
-  { path: '/admin', element: <Admin /> },
-  { path: '/dashboard', element: <Dashboard /> },
-  { path: '/dashboard/subscription', element: <ActiveSubscription /> },
-  { path: '/dashboard/settings', element: <Settings /> },
-  { path: '/dashboard/Doctor', element: <DoctorDashboard /> },
-  { path: '/patients', element: <Patients /> },
+  { path: '/signup', element: <SignupPage /> },
+  
+  // Public routes
   {
-    element: <PrivateRoute />,
-    children: [
-     
-    ],
+    path: '/admin',
+    element: (
+      <PrivateRoute roles={['admin']}>
+        <Admin />
+      </PrivateRoute>
+    )
   },
-  { path: '*', element: <NotFoundPage /> },
+  
+  // Doctor-protected routes
+  // { path: '/dashboard', element: < /> },
+
+  {
+    path: '/dashboard',
+    element: (
+      <PrivateRoute roles={['doctor']}>
+        <DoctorMainLayout />
+      </PrivateRoute>
+    )
+  },
+ 
+
+  // Catch-all route for 404
+  { path: '*', element: <NotFoundPage /> }
 ]);
 
 function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
+  );
 }
 
 export default App;

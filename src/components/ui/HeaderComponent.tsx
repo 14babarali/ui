@@ -1,5 +1,5 @@
 import React from 'react';
-import { Images } from '../assets';
+import { Images } from '../../assets';
 import { Phone,Mail ,User ,LogIn  } from 'lucide-react';
 
 const HeaderComponent = () => {

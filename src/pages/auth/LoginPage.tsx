@@ -1,10 +1,11 @@
-// src/pages/auth/loginPage.tsx
 import React from 'react';
-import { Images } from '../../assets';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useAuth } from '../../contexts/AuthContext';
+import { Images } from '../../assets';
+import { Link } from 'react-router-dom';
 
 // Define validation schema
 const loginSchema = z.object({
@@ -21,6 +22,9 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 const LoginPage: React.FC = () => {
+  const { login } = useAuth(); // Correct hook usage inside component
+  const navigate = useNavigate(); // Correct hook usage inside component
+  
   const {
     register,
     handleSubmit,
@@ -36,32 +40,39 @@ const LoginPage: React.FC = () => {
     try {
       const response = await fetch('http://localhost:8080/api/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-        credentials: 'include' // To allow cookies (JWT in cookies)
+        credentials: 'include'
       });
-  
+      // if (response.data.token) {
+      //   localStorage.setItem('token', response.data.token);
+      // }
       const result = await response.json();
-  
+
       if (response.ok) {
-        console.log('Login successful:', result);
-        // Redirect to dashboard or home page
-        window.location.href = '/dashboard'; // example
+        const { token, email, role, name } = result;
+        login(email, role, name, token);
+        
+        const normalizedRole = role.toLowerCase();
+        if (normalizedRole === 'admin') {
+          navigate('/admin');
+        } else if (normalizedRole === 'doctor') {
+          navigate('/dashboard');
+        } else {
+          navigate('/');
+        }
       } else {
-        console.error('Login failed:', result.message);
-        alert(result.message);
+        alert(result.message || 'Login failed');
       }
     } catch (err) {
       console.error('Login error:', err);
-      alert('Something went wrong, please try again.');
+      alert('Login failed. Please try again.');
     }
   };
-  
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
-      {/* Left Section - Illustration (unchanged) */}
+      {/* Left Section - Illustration */}
       <div className="relative w-full md:w-1/2 bg-gray-900 flex items-center justify-center">
         <img
           src={Images.loginimg}
@@ -84,17 +95,16 @@ const LoginPage: React.FC = () => {
           <p className="text-gray-600 mb-6">Discover a better way of spending with Med Ai.</p>
           
           <button
-  className="w-full bg-white border border-gray-300 text-gray-900 py-2 px-4 rounded-md mb-4 flex items-center justify-center hover:bg-gray-100"
-  onClick={() => window.location.href = 'http://localhost:5000/api/auth/google'}
->
-  <img
-    src="https://www.google.com/favicon.ico"
-    alt="Google Logo"
-    className="h-5 mr-2"
-  />
-  Log in with Google
-</button>
-
+            className="w-full bg-white border border-gray-300 text-gray-900 py-2 px-4 rounded-md mb-4 flex items-center justify-center hover:bg-gray-100"
+            onClick={() => window.location.href = 'http://localhost:5000/api/auth/google'}
+          >
+            <img
+              src="https://www.google.com/favicon.ico"
+              alt="Google Logo"
+              className="h-5 mr-2"
+            />
+            Log in with Google
+          </button>
           
           <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">
@@ -152,7 +162,7 @@ const LoginPage: React.FC = () => {
           
           <p className="text-center text-sm text-gray-600 mt-4">
             Not a member yet?
-            <Link to="/signup" className="text-blue-500 hover:underline">Create an account</Link>
+            <Link to="/signup" className="text-blue-500 hover:underline ml-1">Create an account</Link>
           </p>
         </div>
       </div>
