@@ -31,11 +31,7 @@ const DoctorsTable = () => {
   const [selectedDoctors, setSelectedDoctors] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [editFormData, setEditFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    location: '',
-    phone: '',
+
     licenseNumber: '',
     verified: false,
     active: false
@@ -57,9 +53,8 @@ const DoctorsTable = () => {
       // Transform the data to match our table format
       const transformedData = response.data.data.map(doctor => ({
         id: doctor?._id,
-        name: `${doctor?.firstName} ${doctor?.lastName}`,
-        firstName: doctor?.firstName,
-        lastName: doctor?.lastName,
+        name: `${doctor?.name} `,
+ 
         email: doctor?.user?.email,
         location: doctor?.location,
         lastCheck: new Date(doctor?.updatedAt).toLocaleDateString('en-GB'),
@@ -68,7 +63,6 @@ const DoctorsTable = () => {
         subscription: doctor?.user?.subscription?.plan?.name || 'Free Trial',
         isVerified: doctor?.verified,
         isActive: doctor?.user?.isActive,
-        isSuspended: doctor?.user?.isSuspended,
         avatarColor: ['blue', 'purple', 'green', 'yellow'][Math.floor(Math.random() * 4)]
       }));
 
@@ -105,9 +99,7 @@ const DoctorsTable = () => {
   const handleEditClick = (doctor) => {
     setEditingId(doctor.id);
     setEditFormData({
-      firstName: doctor.firstName,
-      lastName: doctor.lastName,
-      email: doctor.email,
+   email: doctor.email,
       location: doctor.location,
       phone: doctor.phone,
       licenseNumber: doctor.licenseNumber,
@@ -130,10 +122,7 @@ const DoctorsTable = () => {
       
       // Update doctor profile
       await api.put(`/admin/doctors/${id}`, {
-        firstName: editFormData.firstName,
-        lastName: editFormData.lastName,
-        location: editFormData.location,
-        phone: editFormData.phone,
+        
         licenseNumber: editFormData.licenseNumber,
         verified: editFormData.verified
       }, {
@@ -182,26 +171,7 @@ const DoctorsTable = () => {
     }
   };
 
-  const handleSuspendDoctor = async (id, isCurrentlySuspended) => {
-    const action = isCurrentlySuspended ? 'unsuspend' : 'suspend';
-    if (!window.confirm(`Are you sure you want to ${action} this doctor?`)) return;
-    
-    try {
-      await api.put(`/admin/users/${id}/suspend`, {
-        suspend: !isCurrentlySuspended
-      }, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      toast.success(`Doctor ${action}ed successfully`);
-      fetchDoctors(); // Refresh data
-    } catch (err) {
-      console.error(`Error ${action}ing doctor:`, err);
-      toast.error(`Failed to ${action} doctor`);
-    }
-  };
-
+  
   const getAvatarClass = (color) => {
     switch (color) {
       case 'blue': return 'bg-blue-100 text-blue-600';
@@ -307,46 +277,21 @@ const DoctorsTable = () => {
                     <div className={`h-8 w-8 rounded-full flex items-center justify-center ${getAvatarClass(doctor.avatarColor)}`}>
                       <User className="h-4 w-4" />
                     </div>
-                    {editingId === doctor.id ? (
-                      <div className="flex flex-col gap-1">
-                        <input
-                          type="text"
-                          name="firstName"
-                          value={editFormData.firstName}
-                          onChange={handleEditFormChange}
-                          className="border rounded px-2 py-1 w-24"
-                        />
-                        <input
-                          type="text"
-                          name="lastName"
-                          value={editFormData.lastName}
-                          onChange={handleEditFormChange}
-                          className="border rounded px-2 py-1 w-24"
-                        />
-                      </div>
-                    ) : (
+                   
                       <div>
                         <p className="font-medium">{doctor.name}</p>
                         <p className="text-gray-500 text-xs">{doctor.email}</p>
                       </div>
-                    )}
+                 
                   </div>
                 </td>
                 <td className="p-3">
-                  {editingId === doctor.id ? (
-                    <input
-                      type="text"
-                      name="location"
-                      value={editFormData.location}
-                      onChange={handleEditFormChange}
-                      className="border rounded px-2 py-1 w-full"
-                    />
-                  ) : (
+              
                     <div className="flex items-center gap-1">
                       <MapPin className="h-4 w-4 text-gray-400" />
                       <span>{doctor.location}</span>
                     </div>
-                  )}
+                
                 </td>
                 <td className="p-3">
                   <div className="flex items-center gap-1">
@@ -355,20 +300,12 @@ const DoctorsTable = () => {
                   </div>
                 </td>
                 <td className="p-3">
-                  {editingId === doctor.id ? (
-                    <input
-                      type="text"
-                      name="phone"
-                      value={editFormData.phone}
-                      onChange={handleEditFormChange}
-                      className="border rounded px-2 py-1 w-full"
-                    />
-                  ) : (
+                 
                     <div className="flex items-center gap-1">
                       <Phone className="h-4 w-4 text-gray-400" />
                       <span>{doctor.phone}</span>
                     </div>
-                  )}
+             
                 </td>
                 <td className="p-3">
                   <span className={`px-2 py-1 text-xs rounded-full ${
@@ -462,32 +399,7 @@ const DoctorsTable = () => {
                         >
                           <Edit className="h-4 w-4" />
                         </button>
-                        <button 
-                          onClick={() => handleDeleteDoctor(doctor.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-md"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                        {doctor.isSuspended ? (
-                          <button 
-                            onClick={() => handleSuspendDoctor(doctor.id, true)}
-                            className="px-3 py-1 bg-gray-100 text-gray-700 rounded-md text-sm flex items-center gap-1 hover:bg-gray-200"
-                            title="Unsuspend"
-                          >
-                            <Clock className="h-4 w-4" />
-                            <span>Unsuspend</span>
-                          </button>
-                        ) : (
-                          <button 
-                            onClick={() => handleSuspendDoctor(doctor.id, false)}
-                            className="px-3 py-1 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 flex items-center gap-1"
-                            title="Suspend"
-                          >
-                            <AlertTriangle className="h-4 w-4" />
-                            <span>Suspend</span>
-                          </button>
-                        )}
+                    
                       </>
                     )}
                   </div>

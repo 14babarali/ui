@@ -8,19 +8,17 @@ import {
   Clock,
   MoreHorizontal,
   FileText,
-  ArrowUpDown
+  ArrowUpDown,
+  X,
+  RefreshCw
 } from 'lucide-react';
 import { z } from 'zod';
+import  {getPaymentHistory}  from '../services/paymentService.jsx';
 
 // Define Zod schema for payment data
 const paymentSchema = z.object({
   id: z.string(),
-  doctor: z.object({
-    name: z.string().min(2, "Doctor name must be at least 2 characters"),
-    email: z.string().email("Invalid doctor email format"),
-    avatarColor: z.enum(['blue', 'green', 'purple', 'yellow'])
-  }),
-  plan: z.enum(['VIP Plan', 'Free Trial', 'Basic Plan', 'Premium Plan']),
+  plan: z.enum(['Free Trial', 'Basic', 'Professional', 'Enterprise']),
   amount: z.number().min(0, "Amount cannot be negative"),
   date: z.string().regex(/^\d{2}-\d{2}-\d{4}$/, "Date format should be DD-MM-YYYY"),
   status: z.enum(['Paid', 'Pending', 'Failed', 'Refunded']),
@@ -34,48 +32,26 @@ const PaymentsTable = () => {
   const [totalReceived, setTotalReceived] = useState(0);
   const [totalPending, setTotalPending] = useState(0);
 
-  // Mock data that would normally come from your backend
-  const mockPayments = [
-    {
-      id: '1',
-      doctor: {
-        name: 'Dr. Ali Khan',
-        email: 'doctor@gmail.com',
-        avatarColor: 'blue'
-      },
-      plan: 'VIP Plan',
-      amount: 99.99,
-      date: '01-07-2025',
-      status: 'Paid',
-      currency: '$'
-    },
-    {
-      id: '2',
-      doctor: {
-        name: 'Dr. Sara Ahmed',
-        email: 'doctor2@gmail.com',
-        avatarColor: 'green'
-      },
-      plan: 'Free Trial',
-      amount: 0.00,
-      date: '01-07-2025',
-      status: 'Pending',
-      currency: '$'
-    }
-  ];
-
   // Fetch and validate payments data
   const fetchPayments = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // In a real app, this would be an API call:
-      // const response = await fetch('/api/payments');
-      // const data = await response.json();
+      const data = await getPaymentHistory();
       
+      // Transform date format and add missing fields for compatibility
+      const transformedData = data.map(payment => ({
+        ...payment,
+        doctor: {
+          name: 'You',
+          email: 'your@email.com',
+          avatarColor: 'blue'
+        }
+      }));
+
       // Validate the data against our schema
-      const validatedData = z.array(paymentSchema).parse(mockPayments);
+      const validatedData = z.array(paymentSchema).parse(transformedData);
       setPayments(validatedData);
       
       // Calculate totals
@@ -90,7 +66,7 @@ const PaymentsTable = () => {
       setTotalReceived(received);
       setTotalPending(pending);
     } catch (err) {
-      console.error('Data validation failed:', err);
+      console.error('Error fetching payments:', err);
       setError('Failed to load payment data. Please try again.');
       setPayments([]);
       setTotalReceived(0);
@@ -136,10 +112,10 @@ const PaymentsTable = () => {
 
   const getPlanColor = (plan) => {
     switch (plan) {
-      case 'VIP Plan': return 'bg-purple-100 text-purple-800';
+      case 'Enterprise': return 'bg-purple-100 text-purple-800';
       case 'Free Trial': return 'bg-green-100 text-green-800';
-      case 'Basic Plan': return 'bg-blue-100 text-blue-800';
-      case 'Premium Plan': return 'bg-yellow-100 text-yellow-800';
+      case 'Basic': return 'bg-blue-100 text-blue-800';
+      case 'Professional': return 'bg-yellow-100 text-yellow-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -178,8 +154,7 @@ const PaymentsTable = () => {
             <th className="p-3 font-medium text-gray-700 text-left">
               <div className="flex items-center gap-1">
                 <User className="h-4 w-4 text-gray-500" />
-                <span>Doctor</span>
-                <ArrowUpDown className="h-3 w-3 text-gray-400 cursor-pointer" />
+                <span>User</span>
               </div>
             </th>
             <th className="p-3 font-medium text-gray-700 text-left">

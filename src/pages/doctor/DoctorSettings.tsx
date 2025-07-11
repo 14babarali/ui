@@ -11,40 +11,35 @@ const DoctorSettings = () => {
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
 useEffect(() => {
   
-  
-  const fetchDoctorProfile = async () => {
-    try {
-      // Log user id before starting the request
-      console.log('User ID:', user?._id);
+ const fetchDoctorProfile = async () => {
+  try {
+    console.log('User ID:', user?._id);
 
-      if (!user?._id) {
-        console.log('No user ID found, skipping profile fetch.');
-        return;
-      }
+    if (!user?._id) {
+      console.log('No user ID found, skipping profile fetch.');
+      return;
+    }
 
-      console.log('Fetching doctor profile...');
-      
-      // Sending the API request
-      const response = await api.get(`/doctor/profile`);
-      console.log('API Response:', response);
+    console.log('Fetching doctor profile...');
+    
+    const response = await api.get('/doctor/profile');
+    console.log('API Response:', response);
 
-      if (response.data) {
-        console.log('Profile data received:', response.data);
-        setDoctorProfile(response.data);
-        setIsProfileLoaded(true);
-      } else {
-        console.log('No profile data found.');
-        setError('No profile data found');
-        setIsProfileLoaded(false);
-      }
-    } catch (err) {
-      // Log the error details
-      console.error('Error fetching doctor profile:', err);
-      setError(err.response?.data?.message || 'Failed to load profile data');
+    if (response.data?.success) {
+      console.log('Profile data received:', response.data.data);
+      setDoctorProfile(response.data.data);
+      setIsProfileLoaded(true);
+    } else {
+      console.log('No profile data found.');
+      setError(response.data?.message || 'No profile data found');
       setIsProfileLoaded(false);
     }
-  };
-
+  } catch (err) {
+    console.error('Error fetching doctor profile:', err);
+    setError(err.response?.data?.message || 'Failed to load profile data');
+    setIsProfileLoaded(false);
+  }
+};
   fetchDoctorProfile();
 }, [user]);
 

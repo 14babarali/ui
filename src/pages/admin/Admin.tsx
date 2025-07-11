@@ -8,7 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   Bell,
-  Search,LogOut ,
+  Search, LogOut,
   User,
   Settings,
   Plus,
@@ -19,6 +19,8 @@ import DoctorsTable from '../../components/Table/DoctorsTable';
 import SubscriptionsTable from '../../components/Table/SubscriptionsTable';
 import PaymentsTable from '../../components/Table/PaymentsTable';
 import PrescriptionsTable from '../../components/Table/PrescriptionsTable';
+import PatientTable from '../../components/PatientTable'; // Import the PatientTable
+
 import { useAuth } from '../../contexts/AuthContext';
 
 const Admin = () => {
@@ -27,12 +29,14 @@ const Admin = () => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { user, logout } = useAuth();
+  
   const renderContent = () => {
     switch (selectedTab) {
       case 'doctors': return <DoctorsTable />;
       case 'subscriptions': return <SubscriptionsTable />;
       case 'payments': return <PaymentsTable />;
       case 'prescriptions': return <PrescriptionsTable />;
+      case 'patients': return <PatientTable />; // Added case for patients
       default: return <DoctorsTable />;
     }
   };
@@ -49,9 +53,7 @@ const Admin = () => {
 
       {/* Sidebar */}
       <aside 
-        className={`fixed lg:static z-50 w-64 bg-gray-900 text-white border-r border-gray-800 h-screen transition-all duration-300 ease-in-out transform ${
-          mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        }`}
+        className={`fixed lg:static z-50 w-64 bg-gray-900 text-white border-r border-gray-800 h-screen transition-all duration-300 ease-in-out transform ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
         <div className="p-4 border-b border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -68,11 +70,12 @@ const Admin = () => {
 
         <nav className="p-4">
           <ul className="space-y-1">
-            {[
+            {[ 
               { id: 'doctors', icon: <Stethoscope className="h-4 w-4" />, label: 'Doctors' },
               { id: 'subscriptions', icon: <CreditCard className="h-4 w-4" />, label: 'Subscriptions' },
               { id: 'payments', icon: <DollarSign className="h-4 w-4" />, label: 'Payments' },
-              { id: 'prescriptions', icon: <Pill className="h-4 w-4" />, label: 'Prescriptions' }
+              { id: 'prescriptions', icon: <Pill className="h-4 w-4" />, label: 'Prescriptions' },
+              { id: 'patients', icon: <User className="h-4 w-4" />, label: 'Patients' }, // Added "Patients" tab
             ].map((item) => (
               <li key={item.id}>
                 <button
@@ -94,25 +97,25 @@ const Admin = () => {
           </ul>
         </nav>
 
-         {/* Logout Section at Bottom */}
-  <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800 bg-gray-900">
-    <div className="flex items-center gap-3 mb-3">
-      <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
-        {user?.name?.charAt(0).toUpperCase() || 'U'}
-      </div>
-      <div>
-        <p className="font-medium text-sm">{user?.name || 'User'}</p>
-        <p className="text-xs text-gray-400">{user?.email || 'user@example.com'}</p>
-      </div>
-    </div>
-    <button
-      onClick={logout}
-      className="w-full flex items-center gap-3 p-3 rounded-md text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
-    >
-      <LogOut className="h-4 w-4" />
-      <span>Logout</span>
-    </button>
-  </div>
+        {/* Logout Section at Bottom */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800 bg-gray-900">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
+              {user?.name?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            <div>
+              <p className="font-medium text-sm">{user?.name || 'User'}</p>
+              <p className="text-xs text-gray-400">{user?.email || 'user@example.com'}</p>
+            </div>
+          </div>
+          <button
+            onClick={logout}
+            className="w-full flex items-center gap-3 p-3 rounded-md text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Logout</span>
+          </button>
+        </div>
       </aside>
 
       {/* Main Content */}
@@ -175,10 +178,6 @@ const Admin = () => {
                   />
                 </div>
               </div>
-              {/* <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2 text-sm sm:text-base w-full sm:w-auto justify-center">
-                <Plus className="h-4 w-4" />
-                <span>Add New</span>
-              </button> */}
             </div>
 
             {/* Table Section */}

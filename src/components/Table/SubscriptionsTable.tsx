@@ -73,14 +73,15 @@ const SubscriptionsTable = () => {
   useEffect(() => {
     fetchData();
   }, []);
-const fetchData = async () => {
+
+  const fetchData = async () => {
   console.log("Fetching data...");
   try {
     setLoading(true);
     setError(null);
     console.log("User Role:", user?.role);
 
-    if (user?.role === 'Admin' || user?.role === 'admin') {
+    if (user?.role === 'Admin') {
       console.log("Role is Admin. Fetching all subscription plans...");
       const plansResponse = await api.get<SubscriptionPlan[]>('/subscriptions/plans');
       console.log("Plans Response:", plansResponse);
@@ -98,11 +99,17 @@ const fetchData = async () => {
       setUserSubscriptions(userSubscriptions);
 
       console.log("Fetching available subscription plans for Doctor...");
-      const availablePlansResponse = await api.get<SubscriptionPlan[]>('/subscriptions/plans/available');
-      console.log("Available Plans Response:", availablePlansResponse);
-      const availablePlans = Array.isArray(availablePlansResponse.data) ? availablePlansResponse.data : [];
-      console.log("Parsed Available Plans:", availablePlans);
-      setPlans(availablePlans);
+      try {
+        const availablePlansResponse = await api.get<SubscriptionPlan[]>('/subscriptions/plans/available');
+        console.log("Available Plans Response:", availablePlansResponse);
+        const availablePlans = Array.isArray(availablePlansResponse.data) ? availablePlansResponse.data : [];
+        console.log("Parsed Available Plans:", availablePlans);
+        setPlans(availablePlans);
+      } catch (err) {
+        console.log("No available plans endpoint, falling back to regular plans");
+        const plansResponse = await api.get<SubscriptionPlan[]>('/subscriptions/plans');
+        setPlans(Array.isArray(plansResponse.data) ? plansResponse.data : []);
+      }
     }
 
   } catch (err) {
@@ -114,7 +121,6 @@ const fetchData = async () => {
     setLoading(false);
   }
 };
-
 
   const handleSubmitPlan = async (e: React.FormEvent) => {
     e.preventDefault();

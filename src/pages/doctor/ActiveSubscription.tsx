@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import SubscriptionsTable from '../../components/Table/SubscriptionsTable';
+
 import {
   CreditCard,
   Zap,
@@ -100,7 +102,7 @@ const ActiveSubscription = () => {
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       {/* Header */}
-  
+  <SubscriptionsTable/>
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto p-4 sm:p-6">
         <div className="max-w-6xl mx-auto">
@@ -160,56 +162,7 @@ const ActiveSubscription = () => {
             </div>
           </div>
 
-          {/* Plan Features */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-medium mb-4">Plan Features</h3>
-            <ul className="space-y-3">
-              {subscription?.plan?.features?.map((feature, index) => (
-                <li key={index} className="flex items-start gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
-                  <span>{feature}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Usage Statistics */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-              <h3 className="text-lg font-medium">Usage Statistics</h3>
-              <div className="flex items-center gap-2 mt-2 sm:mt-0">
-                <button className="px-3 py-1 bg-gray-100 text-gray-700 rounded-md text-sm">
-                  This Month
-                </button>
-                <button className="px-3 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-50">
-                  Last Month
-                </button>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-4 border border-gray-200 rounded-lg">
-                <p className="text-sm text-gray-500">Patients Seen</p>
-                <p className="text-2xl font-bold mt-1">142</p>
-                <p className="text-xs text-green-600 mt-1 flex items-center">
-                  <ChevronUp className="h-3 w-3" /> 12% from last month
-                </p>
-              </div>
-              <div className="p-4 border border-gray-200 rounded-lg">
-                <p className="text-sm text-gray-500">Prescriptions</p>
-                <p className="text-2xl font-bold mt-1">87</p>
-                <p className="text-xs text-green-600 mt-1 flex items-center">
-                  <ChevronUp className="h-3 w-3" /> 8% from last month
-                </p>
-              </div>
-              <div className="p-4 border border-gray-200 rounded-lg">
-                <p className="text-sm text-gray-500">Storage Used</p>
-                <p className="text-2xl font-bold mt-1">35%</p>
-                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                  <div className="bg-blue-600 h-2 rounded-full" style={{ width: '35%' }}></div>
-                </div>
-              </div>
-            </div>
-          </div>
+ 
         </div>
       </main>
     </div>
