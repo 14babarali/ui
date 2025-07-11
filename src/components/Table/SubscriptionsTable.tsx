@@ -6,12 +6,17 @@ import {
   Trash2, 
   Plus,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  CreditCard,
+  Clock,
+  Calendar,
+  ArrowUpCircle,
+  CloudCog
 } from 'lucide-react';
 import axios, { AxiosError } from 'axios';
 import { toast } from 'react-toastify';
-
-import api from "../../utils/api"
+import { useAuth } from '../../contexts/AuthContext';
+import api from "../../utils/api";
 
 interface SubscriptionPlan {
   _id: string;
@@ -23,6 +28,17 @@ interface SubscriptionPlan {
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;
+}
+
+interface UserSubscription {
+  _id: string;
+  user: string;
+  plan: SubscriptionPlan;
+  startDate: string;
+  endDate: string;
+  paymentMethod: string;
+  autoRenew: boolean;
+  status: 'active' | 'canceled' | 'expired';
 }
 
 type SubscriptionPlanForm = Omit<SubscriptionPlan, '_id' | 'createdAt' | 'updatedAt'>;
@@ -37,33 +53,68 @@ const defaultPlan: SubscriptionPlanForm = {
 };
 
 const SubscriptionsTable = () => {
-  const [plans, setPlans] = useState<SubscriptionPlan[]>([]); // Ensuring that 'plans' is an array
+  const { user } = useAuth();
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [userSubscriptions, setUserSubscriptions] = useState<UserSubscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [formData, setFormData] = useState<SubscriptionPlanForm>(defaultPlan);
+  const [subscribeData, setSubscribeData] = useState({
+    planId: '',
+    paymentMethod: 'credit_card',
+    autoRenew: true
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'plans' | 'my-subscription'>('plans');
 
   useEffect(() => {
-    fetchPlans();
+    fetchData();
   }, []);
+const fetchData = async () => {
+  console.log("Fetching data...");
+  try {
+    setLoading(true);
+    setError(null);
+    console.log("User Role:", user?.role);
 
-  const fetchPlans = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await api.get<SubscriptionPlan[]>('/subscriptions/plans');
-      setPlans(Array.isArray(response.data) ? response.data : []); // Ensure the response is an array
-    } catch (err) {
-      const error = err as AxiosError<{ message?: string }>;
-      console.error('Error fetching plans:', error);
-      setError(error.response?.data?.message || 'Failed to load subscription plans');
-      setPlans([]); // Reset to an empty array in case of error
-    } finally {
-      setLoading(false);
+    if (user?.role === 'Admin' || user?.role === 'admin') {
+      console.log("Role is Admin. Fetching all subscription plans...");
+      const plansResponse = await api.get<SubscriptionPlan[]>('/subscriptions/plans');
+      console.log("Plans Response:", plansResponse);
+      const plans = Array.isArray(plansResponse.data) ? plansResponse.data : [];
+      console.log("Parsed Plans:", plans);
+      setPlans(plans);
     }
-  };
+
+    if (user?.role === 'Doctor') {
+      console.log("Role is Doctor. Fetching user subscriptions...");
+      const subscriptionsResponse = await api.get<UserSubscription[]>('/subscriptions');
+      console.log("User Subscriptions Response:", subscriptionsResponse);
+      const userSubscriptions = Array.isArray(subscriptionsResponse.data) ? subscriptionsResponse.data : [];
+      console.log("Parsed User Subscriptions:", userSubscriptions);
+      setUserSubscriptions(userSubscriptions);
+
+      console.log("Fetching available subscription plans for Doctor...");
+      const availablePlansResponse = await api.get<SubscriptionPlan[]>('/subscriptions/plans/available');
+      console.log("Available Plans Response:", availablePlansResponse);
+      const availablePlans = Array.isArray(availablePlansResponse.data) ? availablePlansResponse.data : [];
+      console.log("Parsed Available Plans:", availablePlans);
+      setPlans(availablePlans);
+    }
+
+  } catch (err) {
+    const error = err as AxiosError<{ message?: string }>;
+    console.error("Error during fetchData:", error);
+    setError(error.response?.data?.message || 'Failed to load data');
+  } finally {
+    console.log("Finished fetching. Setting loading to false.");
+    setLoading(false);
+  }
+};
+
 
   const handleSubmitPlan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,12 +122,10 @@ const SubscriptionsTable = () => {
       setIsSubmitting(true);
       
       if (editingId) {
-        // Update existing plan
         const response = await api.put<SubscriptionPlan>(`/subscriptions/plans/${editingId}`, formData);
         setPlans(plans.map(plan => plan._id === editingId ? response.data : plan));
         toast.success('Plan updated successfully!');
       } else {
-        // Create new plan
         const response = await api.post<SubscriptionPlan>('/subscriptions/plans', formData);
         setPlans([...plans, response.data]);
         toast.success('Plan created successfully!');
@@ -90,6 +139,42 @@ const SubscriptionsTable = () => {
       toast.error(error.response?.data?.message || 'Failed to save plan');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setIsSubmitting(true);
+      
+      const response = await api.post<UserSubscription>('/subscriptions', subscribeData);
+      setUserSubscriptions([...userSubscriptions, response.data]);
+      toast.success('Subscribed successfully!');
+      setShowSubscribeModal(false);
+      fetchData(); // Refresh data
+    } catch (err) {
+      const error = err as AxiosError<{ message?: string }>;
+      console.error('Error subscribing:', error);
+      toast.error(error.response?.data?.message || 'Failed to subscribe');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCancelSubscription = async (subscriptionId: string) => {
+    if (!window.confirm('Are you sure you want to cancel this subscription?')) return;
+    
+    try {
+      setLoading(true);
+      await api.put(`/subscriptions/cancel`, { subscriptionId });
+      toast.success('Subscription canceled successfully');
+      fetchData(); // Refresh data
+    } catch (err) {
+      const error = err as AxiosError<{ message?: string }>;
+      console.error('Error canceling subscription:', error);
+      toast.error(error.response?.data?.message || 'Failed to cancel subscription');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -145,7 +230,7 @@ const SubscriptionsTable = () => {
   };
 
   const handleRemoveFeature = (index: number) => {
-    if (formData.features.length <= 1) return; // Don't remove the last feature
+    if (formData.features.length <= 1) return;
     const newFeatures = formData.features.filter((_, i) => i !== index);
     setFormData({
       ...formData,
@@ -153,11 +238,15 @@ const SubscriptionsTable = () => {
     });
   };
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
-        <span className="ml-2 text-gray-600">Loading plans...</span>
+        <span className="ml-2 text-gray-600">Loading...</span>
       </div>
     );
   }
@@ -170,7 +259,7 @@ const SubscriptionsTable = () => {
           <span>{error}</span>
         </div>
         <button 
-          onClick={fetchPlans}
+          onClick={fetchData}
           className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
         >
           Try Again
@@ -182,46 +271,66 @@ const SubscriptionsTable = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Subscription Plans</h1>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowCreateModal(true);
-          }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          <span>New Plan</span>
-        </button>
+        <h1 className="text-2xl font-bold">
+          {user?.role === 'Admin' ? 'Subscription Plans' : 'My Subscription'}
+        </h1>
+        
+        {user?.role === 'Admin' && (
+          <button
+            onClick={() => {
+              resetForm();
+              setShowCreateModal(true);
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            <span>New Plan</span>
+          </button>
+        )}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
-        {plans.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            No subscription plans found. Create your first plan to get started.
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="p-3 font-medium text-gray-700 text-left">Plan Name</th>
-                <th className="p-3 font-medium text-gray-700 text-left">Description</th>
-                <th className="p-3 font-medium text-gray-700 text-left">Price</th>
-                <th className="p-3 font-medium text-gray-700 text-left">Billing</th>
-                <th className="p-3 font-medium text-gray-700 text-left">Status</th>
-                <th className="p-3 font-medium text-gray-700 text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {plans.map((plan) => (
-                <tr key={plan._id} className="hover:bg-gray-50">
-                  <td className="p-3 font-medium">{plan.name}</td>
-                  <td className="p-3 text-gray-500">{plan.description || '-'}</td>
-                  <td className="p-3">${plan.price.toFixed(2)}</td>
-                  <td className="p-3 text-gray-500 capitalize">{plan.billingCycle}</td>
-                  <td className="p-3">
+      {user?.role === 'Doctor' && (
+        <div className="flex border-b border-gray-200">
+          <button
+            className={`px-4 py-2 font-medium text-sm ${activeTab === 'plans' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
+            onClick={() => setActiveTab('plans')}
+          >
+            Available Plans
+          </button>
+          <button
+            className={`px-4 py-2 font-medium text-sm ${activeTab === 'my-subscription' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
+            onClick={() => setActiveTab('my-subscription')}
+          >
+            My Subscription
+          </button>
+        </div>
+      )}
+
+      {user?.role === 'Doctor' && activeTab === 'my-subscription' ? (
+        <div className="space-y-4">
+          {userSubscriptions.length === 0 ? (
+            <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
+              <CreditCard className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-lg font-medium text-gray-900">No active subscription</h3>
+              <p className="mt-1 text-sm text-gray-500">Subscribe to a plan to access all features</p>
+              <button
+                onClick={() => setActiveTab('plans')}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                View Plans
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {userSubscriptions.map((subscription) => (
+                <div key={subscription._id} className="bg-white rounded-lg border border-gray-200 p-6">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-lg font-medium">{subscription.plan.name}</h3>
+                      <p className="text-gray-500">{subscription.plan.description}</p>
+                    </div>
                     <div className="flex items-center gap-1">
-                      {plan.isActive ? (
+                      {subscription.status === 'active' ? (
                         <>
                           <CheckCircle2 className="h-4 w-4 text-green-500" />
                           <span className="text-green-600">Active</span>
@@ -229,37 +338,131 @@ const SubscriptionsTable = () => {
                       ) : (
                         <>
                           <XCircle className="h-4 w-4 text-red-500" />
-                          <span className="text-red-600">Inactive</span>
+                          <span className="text-red-600">Canceled</span>
                         </>
                       )}
                     </div>
-                  </td>
-                  <td className="p-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEditPlan(plan)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-md"
-                        title="Edit Plan"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeletePlan(plan._id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-md"
-                        title="Delete Plan"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                  </div>
+                  
+                  <div className="mt-4 grid grid-cols-2 gap-4">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-gray-400" />
+                      <span>Start: {formatDate(subscription.startDate)}</span>
                     </div>
-                  </td>
-                </tr>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-gray-400" />
+                      <span>End: {formatDate(subscription.endDate)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="h-4 w-4 text-gray-400" />
+                      <span className="capitalize">{subscription.paymentMethod.replace('_', ' ')}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <ArrowUpCircle className="h-4 w-4 text-gray-400" />
+                      <span>Auto-renew: {subscription.autoRenew ? 'Yes' : 'No'}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 pt-4 border-t border-gray-200 flex justify-end">
+                    {subscription.status === 'active' && (
+                      <button
+                        onClick={() => handleCancelSubscription(subscription._id)}
+                        className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                      >
+                        Cancel Subscription
+                      </button>
+                    )}
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+          {plans.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              No subscription plans found.
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="p-3 font-medium text-gray-700 text-left">Plan Name</th>
+                  <th className="p-3 font-medium text-gray-700 text-left">Description</th>
+                  <th className="p-3 font-medium text-gray-700 text-left">Price</th>
+                  <th className="p-3 font-medium text-gray-700 text-left">Billing</th>
+                  <th className="p-3 font-medium text-gray-700 text-left">Status</th>
+                  <th className="p-3 font-medium text-gray-700 text-left">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {plans.map((plan) => (
+                  <tr key={plan._id} className="hover:bg-gray-50">
+                    <td className="p-3 font-medium">{plan.name}</td>
+                    <td className="p-3 text-gray-500">{plan.description || '-'}</td>
+                    <td className="p-3">${plan.price.toFixed(2)}</td>
+                    <td className="p-3 text-gray-500 capitalize">{plan.billingCycle}</td>
+                    <td className="p-3">
+                      <div className="flex items-center gap-1">
+                        {plan.isActive ? (
+                          <>
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            <span className="text-green-600">Active</span>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="h-4 w-4 text-red-500" />
+                            <span className="text-red-600">Inactive</span>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex gap-2">
+                        {user?.role === 'Admin' ? (
+                          <>
+                            <button
+                              onClick={() => handleEditPlan(plan)}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-md"
+                              title="Edit Plan"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeletePlan(plan._id)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-md"
+                              title="Delete Plan"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setSubscribeData({
+                                ...subscribeData,
+                                planId: plan._id
+                              });
+                              setShowSubscribeModal(true);
+                            }}
+                            className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+                            disabled={!plan.isActive}
+                          >
+                            Subscribe
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
-      {/* Create/Edit Plan Modal */}
+      {/* Create/Edit Plan Modal (Admin Only) */}
       {showCreateModal && (
         <div className="fixed inset-0  bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -414,290 +617,83 @@ const SubscriptionsTable = () => {
           </div>
         </div>
       )}
+
+      {/* Subscribe Modal (Doctor Only) */}
+      {showSubscribeModal && (
+        <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-xl font-semibold">Subscribe to Plan</h3>
+              <button
+                onClick={() => setShowSubscribeModal(false)}
+                className="p-1 rounded-full hover:bg-gray-100"
+                disabled={isSubmitting}
+              >
+                <XCircle className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            <form onSubmit={handleSubscribe} className="p-6">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method*</label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  value={subscribeData.paymentMethod}
+                  onChange={(e) => setSubscribeData({
+                    ...subscribeData,
+                    paymentMethod: e.target.value
+                  })}
+                  required
+                >
+                  <option value="credit_card">Credit Card</option>
+                  <option value="paypal">PayPal</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                </select>
+              </div>
+              
+              <div className="mb-4 flex items-center">
+                <input
+                  type="checkbox"
+                  id="autoRenew"
+                  className="h-4 w-4 text-blue-600 rounded"
+                  checked={subscribeData.autoRenew}
+                  onChange={(e) => setSubscribeData({
+                    ...subscribeData,
+                    autoRenew: e.target.checked
+                  })}
+                />
+                <label htmlFor="autoRenew" className="ml-2 text-sm text-gray-700">
+                  Auto-renew subscription
+                </label>
+              </div>
+              
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowSubscribeModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 flex items-center gap-2 disabled:opacity-70"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="animate-spin h-4 w-4" />
+                  ) : (
+                    <CreditCard className="h-4 w-4" />
+                  )}
+                  <span>Subscribe</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default SubscriptionsTable;
-
-
-// import React, { useState, useEffect } from 'react';
-// import { 
-//   Crown,
-//   Clock,
-//   CheckCircle2,
-//   XCircle,
-//   Calendar,
-//   DollarSign,
-//   Edit,
-//   MoreHorizontal,
-//   ArrowUpDown,
-//   Zap,
-//   RefreshCw,
-//   X
-// } from 'lucide-react';
-// import { z } from 'zod';
-
-// // Define Zod schema for subscription data
-// const subscriptionSchema = z.object({
-//   id: z.string(),
-//   name: z.string().min(2, "Plan name must be at least 2 characters"),
-//   description: z.string().min(5, "Description too short"),
-//   status: z.enum(['Active', 'Inactive', 'Pending', 'Expired']),
-//   startDate: z.string().regex(/^\d{2}-\d{2}-\d{4}$/, "Date format should be DD-MM-YYYY"),
-//   endDate: z.string().regex(/^\d{2}-\d{2}-\d{4}$/, "Date format should be DD-MM-YYYY"),
-//   price: z.number().min(0, "Price cannot be negative"),
-//   currency: z.string().length(1, "Currency symbol should be 1 character").default('$'),
-//   icon: z.enum(['crown', 'zap', 'star', 'diamond']),
-//   iconColor: z.enum(['purple', 'blue', 'green', 'yellow', 'red'])
-// });
-
-// const SubscriptionsTable = () => {
-//   const [subscriptions, setSubscriptions] = useState([]);
-//   const [loading, setLoading] = useState(true);
-//   const [error, setError] = useState(null);
-//   const [activePlans, setActivePlans] = useState(0);
-//   const [totalRevenue, setTotalRevenue] = useState(0);
-
-//   // Mock data that would normally come from your backend
-//   const mockSubscriptions = [
-//     {
-//       id: '1',
-//       name: 'VIP Plan',
-//       description: 'Premium features',
-//       status: 'Active',
-//       startDate: '01-07-2025',
-//       endDate: '01-01-2026',
-//       price: 99.99,
-//       currency: '$',
-//       icon: 'crown',
-//       iconColor: 'purple'
-//     },
-//     {
-//       id: '2',
-//       name: 'Free Trial',
-//       description: 'Basic features',
-//       status: 'Inactive',
-//       startDate: '01-07-2025',
-//       endDate: '31-07-2025',
-//       price: 0.00,
-//       currency: '$',
-//       icon: 'zap',
-//       iconColor: 'blue'
-//     }
-//   ];
-
-//   // Fetch and validate subscription data
-//   const fetchSubscriptions = async () => {
-//     try {
-//       setLoading(true);
-//       setError(null);
-      
-//       // In a real app, this would be an API call:
-//       // const response = await fetch('/api/subscriptions');
-//       // const data = await response.json();
-      
-//       // Validate the data against our schema
-//       const validatedData = z.array(subscriptionSchema).parse(mockSubscriptions);
-//       setSubscriptions(validatedData);
-      
-//       // Calculate metrics
-//       const activeCount = validatedData.filter(sub => sub.status === 'Active').length;
-//       const revenue = validatedData
-//         .filter(sub => sub.status === 'Active')
-//         .reduce((sum, sub) => sum + sub.price, 0);
-      
-//       setActivePlans(activeCount);
-//       setTotalRevenue(revenue);
-//     } catch (err) {
-//       console.error('Data validation failed:', err);
-//       setError('Failed to load subscription data. Please try again.');
-//       setSubscriptions([]);
-//       setActivePlans(0);
-//       setTotalRevenue(0);
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   useEffect(() => {
-//     fetchSubscriptions();
-//   }, []);
-
-//   const getIconComponent = (icon) => {
-//     switch (icon) {
-//       case 'crown': return <Crown className="h-4 w-4" />;
-//       case 'zap': return <Zap className="h-4 w-4" />;
-//       // Add more icons as needed
-//       default: return <Crown className="h-4 w-4" />;
-//     }
-//   };
-
-//   const getStatusIcon = (status) => {
-//     switch (status) {
-//       case 'Active': return <CheckCircle2 className="h-4 w-4 text-green-500" />;
-//       case 'Inactive': return <XCircle className="h-4 w-4 text-gray-500" />;
-//       case 'Pending': return <Clock className="h-4 w-4 text-yellow-500" />;
-//       case 'Expired': return <X className="h-4 w-4 text-red-500" />;
-//       default: return null;
-//     }
-//   };
-
-//   const getStatusColor = (status) => {
-//     switch (status) {
-//       case 'Active': return 'text-green-600';
-//       case 'Inactive': return 'text-gray-600';
-//       case 'Pending': return 'text-yellow-600';
-//       case 'Expired': return 'text-red-600';
-//       default: return 'text-gray-600';
-//     }
-//   };
-
-//   const getIconColorClass = (color) => {
-//     switch (color) {
-//       case 'purple': return 'bg-purple-100 text-purple-600';
-//       case 'blue': return 'bg-blue-100 text-blue-600';
-//       case 'green': return 'bg-green-100 text-green-600';
-//       case 'yellow': return 'bg-yellow-100 text-yellow-600';
-//       case 'red': return 'bg-red-100 text-red-600';
-//       default: return 'bg-gray-100 text-gray-600';
-//     }
-//   };
-
-//   if (loading) {
-//     return (
-//       <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
-//         <div className="flex justify-center items-center h-64">
-//           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-//         </div>
-//       </div>
-//     );
-//   }
-
-//   if (error) {
-//     return (
-//       <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
-//         <div className="p-6 text-center">
-//           <p className="text-red-600 mb-4">{error}</p>
-//           <button 
-//             onClick={fetchSubscriptions}
-//             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2 mx-auto"
-//           >
-//             <RefreshCw className="h-4 w-4" />
-//             <span>Retry</span>
-//           </button>
-//         </div>
-//       </div>
-//     );
-//   }
-
-//   return (
-//     <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
-//       <table className="w-full text-sm">
-//         <thead className="bg-gray-50">
-//           <tr>
-//             <th className="p-3 font-medium text-gray-700 text-left">
-//               <div className="flex items-center gap-1">
-//                 <Crown className="h-4 w-4 text-gray-500" />
-//                 <span>Plan Name</span>
-//                 <ArrowUpDown className="h-3 w-3 text-gray-400 cursor-pointer" />
-//               </div>
-//             </th>
-//             <th className="p-3 font-medium text-gray-700 text-left">Status</th>
-//             <th className="p-3 font-medium text-gray-700 text-left">
-//               <div className="flex items-center gap-1">
-//                 <Calendar className="h-4 w-4 text-gray-500" />
-//                 <span>Start Date</span>
-//               </div>
-//             </th>
-//             <th className="p-3 font-medium text-gray-700 text-left">
-//               <div className="flex items-center gap-1">
-//                 <Calendar className="h-4 w-4 text-gray-500" />
-//                 <span>End Date</span>
-//               </div>
-//             </th>
-//             <th className="p-3 font-medium text-gray-700 text-left">
-//               <div className="flex items-center gap-1">
-//                 <DollarSign className="h-4 w-4 text-gray-500" />
-//                 <span>Price</span>
-//                 <ArrowUpDown className="h-3 w-3 text-gray-400 cursor-pointer" />
-//               </div>
-//             </th>
-//             <th className="p-3 font-medium text-gray-700 text-left">Actions</th>
-//           </tr>
-//         </thead>
-//         <tbody className="divide-y divide-gray-200">
-//           {subscriptions.map((subscription) => (
-//             <tr key={subscription.id} className="hover:bg-gray-50">
-//               <td className="p-3">
-//                 <div className="flex items-center gap-2">
-//                   <div className={`h-8 w-8 rounded-full flex items-center justify-center ${getIconColorClass(subscription.iconColor)}`}>
-//                     {getIconComponent(subscription.icon)}
-//                   </div>
-//                   <div>
-//                     <p className="font-medium">{subscription.name}</p>
-//                     <p className="text-xs text-gray-500">{subscription.description}</p>
-//                   </div>
-//                 </div>
-//               </td>
-//               <td className="p-3">
-//                 <div className="flex items-center gap-1">
-//                   {getStatusIcon(subscription.status)}
-//                   <span className={getStatusColor(subscription.status)}>{subscription.status}</span>
-//                 </div>
-//               </td>
-//               <td className="p-3">
-//                 <div className="flex items-center gap-1">
-//                   <Calendar className="h-4 w-4 text-gray-400" />
-//                   <span>{subscription.startDate}</span>
-//                 </div>
-//               </td>
-//               <td className="p-3">
-//                 <div className="flex items-center gap-1">
-//                   <Calendar className="h-4 w-4 text-gray-400" />
-//                   <span>{subscription.endDate}</span>
-//                 </div>
-//               </td>
-//               <td className="p-3 font-medium">{subscription.currency}{subscription.price.toFixed(2)}</td>
-//               <td className="p-3">
-//                 <div className="flex gap-2">
-//                   <button 
-//                     className="p-2 text-blue-600 hover:bg-blue-50 rounded-md"
-//                     title="Edit Plan"
-//                   >
-//                     <Edit className="h-4 w-4" />
-//                   </button>
-//                   <button 
-//                     className="p-2 text-gray-600 hover:bg-gray-50 rounded-md"
-//                     title="More Options"
-//                   >
-//                     <MoreHorizontal className="h-4 w-4" />
-//                   </button>
-//                 </div>
-//               </td>
-//             </tr>
-//           ))}
-//         </tbody>
-//       </table>
-
-//       {/* Table Footer */}
-//       <div className="p-4 border-t border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-//         <div className="text-sm text-gray-600">
-//           Showing <span className="font-medium">1</span> to <span className="font-medium">{subscriptions.length}</span> of <span className="font-medium">{subscriptions.length}</span> subscriptions
-//         </div>
-//         <div className="flex items-center gap-4">
-//           <div className="text-sm">
-//             <span className="text-gray-600">Active Plans:</span>
-//             <span className="font-medium ml-2">{activePlans}</span>
-//           </div>
-//           <div className="text-sm">
-//             <span className="text-gray-600">Total Revenue:</span>
-//             <span className="font-medium ml-2">{subscriptions[0]?.currency || '$'}{totalRevenue.toFixed(2)}</span>
-//           </div>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default SubscriptionsTable;

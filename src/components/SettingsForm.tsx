@@ -1,19 +1,8 @@
-//src/components/SettingsForm.jsx
-
 import React, { useState, useEffect } from 'react';
 import { 
-  User,
-  MapPin,
-  IdCard,
-  GraduationCap,
-  Hospital,
-  Phone,
-  ClipboardList,
-  FileText,
-  X,
-  Eye,
-  Edit,
-  Check,
+  User, MapPin, IdCard, GraduationCap, 
+  Hospital, Phone, ClipboardList, FileText, 
+  X, Eye, Edit, Check, Plus, Trash2 
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,7 +10,7 @@ import { z } from 'zod';
 import api from '.././utils/api';
 import { toast } from 'react-toastify';
 
-// Define validation schema for doctor profile
+// Validation schemas
 const doctorProfileSchema = z.object({
   firstName: z.string()
     .min(2, 'First name must be at least 2 characters')
@@ -50,21 +39,22 @@ const doctorProfileSchema = z.object({
   prescriptionTemplate: z.string().optional(),
 });
 
-// Define validation schema for prescription templates
 const templateSchema = z.object({
   name: z.string().min(2, 'Template name must be at least 2 characters'),
   content: z.string().min(1, 'Template content is required'),
 });
 
-const SettingsForm = () => {
+interface SettingsFormProps {
+  doctorProfile: any;
+}
+
+const SettingsForm: React.FC<SettingsFormProps> = ({ doctorProfile }) => {
   const [showPopup, setShowPopup] = useState(false);
   const [activeTab, setActiveTab] = useState('edit');
   const [isSaving, setIsSaving] = useState(false);
-  const [templates, setTemplates] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [profileData, setProfileData] = useState(null);
-  const [error, setError] = useState(null);
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
 
   // Main profile form
   const { 
@@ -75,6 +65,18 @@ const SettingsForm = () => {
     reset,
   } = useForm({
     resolver: zodResolver(doctorProfileSchema),
+    defaultValues: {
+      firstName: doctorProfile?.firstName || '',
+      lastName: doctorProfile?.lastName || '',
+      location: doctorProfile?.location || '',
+      idNumber: doctorProfile?.idNumber || '',
+      certificationId: doctorProfile?.certificationId || '',
+      education: doctorProfile?.education || '',
+      hospital: doctorProfile?.hospital || '',
+      phone: doctorProfile?.phone || '',
+      licenseNumber: doctorProfile?.licenseNumber || '',
+      qualifications: doctorProfile?.qualifications || '',
+    }
   });
 
   // Template form
@@ -87,58 +89,48 @@ const SettingsForm = () => {
     resolver: zodResolver(templateSchema),
   });
 
-  // Fetch doctor profile and templates
+  // Fetch templates when component mounts
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchTemplates = async () => {
       try {
-        setLoading(true);
-        setError(null);
-
-        const [profileResponse, templatesResponse] = await Promise.all([
-          api.get('/doctor/profile'),
-          api.get('/doctor/templates')
-        ]);
-
-        setProfileData(profileResponse.data);
-        const fetchedTemplates = Array.isArray(templatesResponse.data) ? templatesResponse.data : [];
-        setTemplates(fetchedTemplates);
-
-        const defaultTemplate = fetchedTemplates.find((t) => t.isDefault)?._id || fetchedTemplates[0]?._id || '';
-        reset({
-          ...profileResponse.data,
-          prescriptionTemplate: defaultTemplate,
-        });
+        const response = await api.get('/doctor/templates');
+        setTemplates(response.data || []);
+        
+        // Set default template if available
+        const defaultTemplate = response.data.find((t: any) => t.isDefault)?._id || '';
         setValue('prescriptionTemplate', defaultTemplate);
       } catch (error) {
-        console.error('Error fetching data:', error);
-        const errorMessage = error.response?.data?.message || 'Failed to load profile data';
-        setError(errorMessage);
-        toast.error(errorMessage);
+        console.error('Error fetching templates:', error);
+        toast.error('Failed to load prescription templates');
       } finally {
-        setLoading(false);
+        setLoadingTemplates(false);
       }
     };
 
-    fetchData();
-  }, [reset, setValue]);
+    fetchTemplates();
+  }, []);
 
-  const onSubmit = async (data) => {
+  const onSubmit = async (data: any) => {
     try {
       setIsSaving(true);
       const { prescriptionTemplate, ...profileData } = data;
 
       const response = await api.put('/doctor/profile', profileData);
       toast.success('Profile updated successfully!');
-      setProfileData(response.data);
+      
+      // Update the default template if changed
+      if (prescriptionTemplate) {
+        await api.put(`/doctor/templates/${prescriptionTemplate}/set-default`);
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to update profile';
-      toast.error(errorMessage);
+      toast.error(error.response?.data?.message || 'Failed to update profile');
     } finally {
       setIsSaving(false);
     }
   };
 
+  // Template management functions
   const handlePrescriptionTemplateClick = () => {
     setShowPopup(true);
     setSelectedTemplate(null);
@@ -152,15 +144,14 @@ const SettingsForm = () => {
     resetTemplate();
   };
 
-  const handleEditTemplate = (template) => {
+  const handleEditTemplate = (template: any) => {
     setSelectedTemplate(template);
     setActiveTab('edit');
     setShowPopup(true);
     resetTemplate({ name: template.name, content: template.content });
   };
 
-  // Template management functions
-  const createTemplate = async (templateData) => {
+  const createTemplate = async (templateData: any) => {
     try {
       const response = await api.post('/doctor/templates', templateData);
       setTemplates([...templates, response.data]);
@@ -168,86 +159,52 @@ const SettingsForm = () => {
       closePopup();
     } catch (error) {
       console.error('Error creating template:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to create template';
-      toast.error(errorMessage);
+      toast.error(error.response?.data?.message || 'Failed to create template');
     }
   };
 
-  const updateTemplate = async (id, templateData) => {
+  const updateTemplate = async (id: string, templateData: any) => {
     try {
       const response = await api.put(`/doctor/templates/${id}`, templateData);
-      setTemplates(templates.map((t) => (t._id === id ? response.data : t)));
+      setTemplates(templates.map(t => t._id === id ? response.data : t));
       toast.success('Template updated successfully!');
       closePopup();
     } catch (error) {
       console.error('Error updating template:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to update template';
-      toast.error(errorMessage);
+      toast.error(error.response?.data?.message || 'Failed to update template');
     }
   };
 
-  const deleteTemplate = async (id) => {
+  const deleteTemplate = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this template?')) return;
+    
     try {
       await api.delete(`/doctor/templates/${id}`);
-      setTemplates(templates.filter((t) => t._id !== id));
+      setTemplates(templates.filter(t => t._id !== id));
       toast.success('Template deleted successfully!');
     } catch (error) {
       console.error('Error deleting template:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to delete template';
-      toast.error(errorMessage);
+      toast.error(error.response?.data?.message || 'Failed to delete template');
     }
   };
 
-  const setDefaultTemplate = async (id) => {
+  const setDefaultTemplate = async (id: string) => {
     try {
       await api.put(`/doctor/templates/${id}/set-default`, {});
-      setTemplates(templates.map((t) => ({ ...t, isDefault: t._id === id })));
+      setTemplates(templates.map(t => ({ ...t, isDefault: t._id === id })));
       setValue('prescriptionTemplate', id);
       toast.success('Default template set successfully!');
     } catch (error) {
       console.error('Error setting default template:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to set default template';
-      toast.error(errorMessage);
+      toast.error(error.response?.data?.message || 'Failed to set default template');
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="text-red-500 flex items-center gap-2">
-          <X className="h-5 w-5" />
-          <span>{error}</span>
-        </div>
-        <button 
-          onClick={() => window.location.reload()}
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          Try Again
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      <div className="p-6 border-b border-gray-200">
-        <h3 className="text-xl font-semibold flex items-center gap-2">
-          <User className="h-5 w-5 text-blue-600" />
-          <span>Doctor Profile Settings</span>
-        </h3>
-      </div>
-
       <form onSubmit={handleSubmit(onSubmit)} className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Personal Information Section */}
+        {/* Personal Information Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="space-y-4">
             <h4 className="text-lg font-medium flex items-center gap-2 text-gray-700">
               <User className="h-4 w-4" />
@@ -355,7 +312,7 @@ const SettingsForm = () => {
         </div>
 
         {/* Medical License Section */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Medical license number</label>
             <input
@@ -381,7 +338,11 @@ const SettingsForm = () => {
             <span>Prescription Templates</span>
           </h4>
 
-          {templates.length === 0 ? (
+          {loadingTemplates ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="animate-spin h-6 w-6 text-blue-500" />
+            </div>
+          ) : templates.length === 0 ? (
             <div className="text-center py-8">
               <FileText className="mx-auto h-12 w-12 text-gray-400" />
               <h3 className="mt-2 text-sm font-medium text-gray-900">No templates</h3>
@@ -425,7 +386,7 @@ const SettingsForm = () => {
                   onClick={handlePrescriptionTemplateClick}
                   className="ml-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
                 >
-                  <FileText className="h-4 w-4" />
+                  <Plus className="h-4 w-4" />
                   <span>New Template</span>
                 </button>
               </fieldset>
@@ -435,7 +396,7 @@ const SettingsForm = () => {
                   <div 
                     key={template._id} 
                     className={`border rounded-lg p-4 hover:border-blue-300 transition-colors cursor-pointer relative ${
-                      profileData?.prescriptionTemplate === template._id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                      doctorProfile?.prescriptionTemplate === template._id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
                     }`}
                     onClick={() => setValue('prescriptionTemplate', template._id)}
                   >
@@ -460,7 +421,7 @@ const SettingsForm = () => {
                         className="p-1 text-gray-500 hover:text-red-600"
                         aria-label={`Delete ${template.name} template`}
                       >
-                        <X className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                     
@@ -492,7 +453,11 @@ const SettingsForm = () => {
               isSaving ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
-            <Check className="h-4 w-4" />
+            {isSaving ? (
+              <Loader2 className="animate-spin h-4 w-4" />
+            ) : (
+              <Check className="h-4 w-4" />
+            )}
             <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
           </button>
         </div>
@@ -500,7 +465,7 @@ const SettingsForm = () => {
 
       {/* Prescription Template Popup */}
       {showPopup && (
-        <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
               <h3 className="text-xl font-semibold flex items-center gap-2">

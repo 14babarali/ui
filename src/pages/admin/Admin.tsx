@@ -8,7 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   Bell,
-  Search,
+  Search,LogOut ,
   User,
   Settings,
   Plus,
@@ -22,6 +22,7 @@ import PrescriptionsTable from '../../components/Table/PrescriptionsTable';
 import { useAuth } from '../../contexts/AuthContext';
 
 const Admin = () => {
+  
   const [selectedTab, setSelectedTab] = useState('doctors');
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,6 +93,26 @@ const Admin = () => {
             ))}
           </ul>
         </nav>
+
+         {/* Logout Section at Bottom */}
+  <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800 bg-gray-900">
+    <div className="flex items-center gap-3 mb-3">
+      <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center">
+        {user?.name?.charAt(0).toUpperCase() || 'U'}
+      </div>
+      <div>
+        <p className="font-medium text-sm">{user?.name || 'User'}</p>
+        <p className="text-xs text-gray-400">{user?.email || 'user@example.com'}</p>
+      </div>
+    </div>
+    <button
+      onClick={logout}
+      className="w-full flex items-center gap-3 p-3 rounded-md text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+    >
+      <LogOut className="h-4 w-4" />
+      <span>Logout</span>
+    </button>
+  </div>
       </aside>
 
       {/* Main Content */}
@@ -154,10 +175,10 @@ const Admin = () => {
                   />
                 </div>
               </div>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2 text-sm sm:text-base w-full sm:w-auto justify-center">
+              {/* <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2 text-sm sm:text-base w-full sm:w-auto justify-center">
                 <Plus className="h-4 w-4" />
                 <span>Add New</span>
-              </button>
+              </button> */}
             </div>
 
             {/* Table Section */}

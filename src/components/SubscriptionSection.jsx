@@ -40,9 +40,7 @@ const SubscriptionSection = () => {
           </tbody>
         </table>
       </div>
-      <div className="flex justify-end mt-4">
-        <button className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 bg-red-400">Add New Plan</button>
-      </div>
+      
     </div>
   );
 };

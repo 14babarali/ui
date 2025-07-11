@@ -78,68 +78,7 @@ const TableSection = ({
       <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         {/* Left Controls */}
        
-       
-        {/* <div className="flex items-center gap-3">
-          <div className="relative">
-            <select 
-              value={filterValue}
-              onChange={handleFilterChange}
-              className="appearance-none pl-10 pr-8 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="pending">Pending</option>
-            </select>
-            <div className="absolute left-3 top-1/2 transform -translate-y-1/2 flex items-center">
-              <Filter className="h-4 w-4 text-gray-400" />
-            </div>
-            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-          </div>
-
-          {selectedCount > 0 && (
-            <span className="text-sm text-gray-600 px-3 py-1 bg-gray-100 rounded-md">
-              {selectedCount} selected
-            </span>
-          )}
-
-          <button 
-            onClick={handleRefresh}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md"
-            title="Refresh"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </button>
-        </div> */}
-
-        {/* Right Controls */}
-        {/* <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={handleSearch}
-              placeholder="Search..."
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          <button 
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md"
-            title="Download"
-          >
-            <Download className="h-4 w-4" />
-          </button>
-
-          <button 
-            onClick={handleAddNew}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add New</span>
-          </button>
-        </div> */}
+    
       </div>
 
       {/* Table Content */}
